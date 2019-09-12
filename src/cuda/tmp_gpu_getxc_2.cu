@@ -78,6 +78,8 @@ void getxc(_gpu_type gpu, gpu_libxc_info** glinfo, int nof_functionals, int xc_c
     cudaEventRecord(start, 0);
 #endif
 		getxc_kernel<<<gpu->blocks, gpu->XCThreadsPerBlock>>>(glinfo, nof_functionals, xc_calc_type, exc_dev_grad);
+
+		cudaDeviceSynchronize();
 #ifdef DEBUG
     printf("Running getxc_kernel with BLOCK = %i, THREADS PER BLOCK = %i \n", gpu->blocks, gpu->XCThreadsPerBlock);
     cudaEventRecord(end, 0);
@@ -586,7 +588,7 @@ __device__ void gpu_grid_xc_grad(int irad, int iradtemp, int iatm, QUICKDouble X
 			}
 
 			if(sswt != 1.0){
-//				sswder(gridx, gridy, gridz, _tmp, weight/sswt, iatm, exc_dev_grad);
+				sswder(gridx, gridy, gridz, _tmp, weight/sswt, iatm, exc_dev_grad);
 			}
 		}
 	}
@@ -803,10 +805,10 @@ __device__ void sswder(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, 
 	The array is called UW for obvious reasons.
 */	
 
-	QUICKDouble* uw;
+	//QUICKDouble* uw;
 	QUICKDouble* wtgrad;
 
-	uw=(QUICKDouble*)malloc(devSim_dft.natom*sizeof(QUICKDouble));
+	//uw=(QUICKDouble*)malloc(devSim_dft.natom*sizeof(QUICKDouble));
 	wtgrad=(QUICKDouble*)malloc(3*devSim_dft.natom*sizeof(QUICKDouble));
 		
 	for(int iatm=0;iatm<devSim_dft.natom*3;iatm++){
@@ -818,40 +820,7 @@ __device__ void sswder(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, 
 	QUICKDouble rig, rjg, rlg, rij, rjl;
 		
 	for(int iatm=0;iatm<devSim_dft.natom;iatm++){
-		uw[iatm]=1.0;
-
-		xiatm = LOC2(devSim_dft.xyz, 0, iatm, 3, devSim_dft.natom);
-		yiatm = LOC2(devSim_dft.xyz, 1, iatm, 3, devSim_dft.natom);
-		ziatm = LOC2(devSim_dft.xyz, 2, iatm, 3, devSim_dft.natom);
-	
-		rig = sqrt(pow((gridx-xiatm),2) + pow((gridy-yiatm),2) + pow((gridz-ziatm),2));
-	
-		for(int jatm=0;jatm<devSim_dft.natom;jatm++){
-			if(jatm != iatm){
-
-				xjatm = LOC2(devSim_dft.xyz, 0, jatm, 3, devSim_dft.natom);
-				yjatm = LOC2(devSim_dft.xyz, 1, jatm, 3, devSim_dft.natom);
-				zjatm = LOC2(devSim_dft.xyz, 2, jatm, 3, devSim_dft.natom);
-
-				rjg = sqrt(pow((gridx-xjatm),2) + pow((gridy-yjatm),2) + pow((gridz-zjatm),2));
-				rij = sqrt(pow((xiatm-xjatm),2) + pow((yiatm-yjatm),2) + pow((ziatm-zjatm),2));
-
-				QUICKDouble confocal = (rig-rjg)/rij;
-
-				if(confocal >= 0.64){
-					uw[iatm] = 0.0;
-				}else if(confocal >= -0.64){
-
-					QUICKDouble frctn = confocal/0.64;
-
-					QUICKDouble gofconfocal = (35.0*frctn-35.0*pow(frctn,3)+21.0*pow(frctn,5)
-					-5.0*pow(frctn,7))/16.0;
-		
-					uw[iatm] = uw[iatm]*0.5*(1.0-gofconfocal);
-				}
-			}
-		}
-		sumUW = sumUW + uw[iatm];	
+		sumUW = sumUW + get_unnormalized_weight(gridx, gridy, gridz, iatm);
 	}
 	
 /*
@@ -866,10 +835,15 @@ __device__ void sswder(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, 
 	rig = sqrt(pow((gridx-xiatm),2) + pow((gridy-yiatm),2) + pow((gridz-ziatm),2));	
 
 	QUICKDouble a = 0.64;
+	int istart = (iparent-1)*3;	
 
 	for(int jatm=0;jatm<devSim_dft.natom;jatm++){
 
 		int jstart = jatm*3;
+
+		QUICKDouble wtgradjx = 0.0;
+		QUICKDouble wtgradjy = 0.0;
+		QUICKDouble wtgradjz = 0.0;
 		
 		if(jatm != iparent-1){
 
@@ -886,15 +860,12 @@ __device__ void sswder(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, 
 
 			QUICKDouble u = (rig-rjg)/rij;
 			QUICKDouble t = (-35.0*pow((a+u),3)) / ((a-u)*(16.0*pow(a,3)+29.0*pow(a,2)*u+20.0*a*pow(u,2)+5.0*pow(u,3)));
+			QUICKDouble uw_iparent = get_unnormalized_weight(gridx, gridy, gridz, iparent-1);
+			QUICKDouble uw_jatm = get_unnormalized_weight(gridx, gridy, gridz, jatm);
 
-			wtgrad[jstart+0] = wtgrad[jstart+0] + uw[iparent-1]*dmudx*t/sumUW;
-			wtgrad[jstart+1] = wtgrad[jstart+1] + uw[iparent-1]*dmudy*t/sumUW;
-			wtgrad[jstart+2] = wtgrad[jstart+2] + uw[iparent-1]*dmudz*t/sumUW;
-
-
-/*        for(int i=0;i<devSim_dft.natom*3;i++){
-                printf("i: %d, wtgrad: %f \n", i, wtgrad[i]);
-        }*/
+			wtgradjx = wtgradjx + uw_iparent*dmudx*t/sumUW;
+			wtgradjy = wtgradjy + uw_iparent*dmudy*t/sumUW;
+			wtgradjz = wtgradjz + uw_iparent*dmudz*t/sumUW;
 
 			for(int latm=0; latm<devSim_dft.natom;latm++){
 				if(latm != jatm){
@@ -911,10 +882,10 @@ __device__ void sswder(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, 
 
 					u = (rlg-rjg)/rjl; 
 					t = (-35.0*pow((a+u),3)) / ((a-u)*(16.0*pow(a,3)+29.0*pow(a,2)*u+20.0*a*pow(u,2)+5.0*pow(u,3)));
-
-					wtgrad[jstart+0] = wtgrad[jstart+0] - uw[latm]*uw[iparent-1]*dmudx*t/pow(sumUW,2);
-					wtgrad[jstart+1] = wtgrad[jstart+1] - uw[latm]*uw[iparent-1]*dmudy*t/pow(sumUW,2);
-					wtgrad[jstart+2] = wtgrad[jstart+2] - uw[latm]*uw[iparent-1]*dmudz*t/pow(sumUW,2);
+					QUICKDouble uw_latm = get_unnormalized_weight(gridx, gridy, gridz, latm);					
+					wtgradjx = wtgradjx - uw_latm*uw_iparent*dmudx*t/pow(sumUW,2);
+					wtgradjy = wtgradjy - uw_latm*uw_iparent*dmudy*t/pow(sumUW,2);
+					wtgradjz = wtgradjz - uw_latm*uw_iparent*dmudz*t/pow(sumUW,2);
 				}
 			}
 
@@ -934,18 +905,28 @@ __device__ void sswder(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, 
 					u = (rjg-rlg)/rjl;
 					t = (-35.0*pow((a+u),3)) / ((a-u)*(16.0*pow(a,3)+29.0*pow(a,2)*u+20.0*a*pow(u,2)+5.0*pow(u,3)));
 
-					wtgrad[jstart+0] = wtgrad[jstart+0] + uw[jatm]*uw[iparent-1]*dmudx*t/pow(sumUW,2);
-					wtgrad[jstart+1] = wtgrad[jstart+1] + uw[jatm]*uw[iparent-1]*dmudy*t/pow(sumUW,2);
-					wtgrad[jstart+2] = wtgrad[jstart+2] + uw[jatm]*uw[iparent-1]*dmudz*t/pow(sumUW,2);
+					wtgradjx = wtgradjx + uw_jatm*uw_iparent*dmudx*t/pow(sumUW,2);
+					wtgradjy = wtgradjy + uw_jatm*uw_iparent*dmudy*t/pow(sumUW,2);
+					wtgradjz = wtgradjz + uw_jatm*uw_iparent*dmudz*t/pow(sumUW,2);
 				}
 			}
+
+		wtgrad[istart+0] = wtgrad[istart+0] - wtgradjx;
+		wtgrad[istart+1] = wtgrad[istart+1] - wtgradjy;
+		wtgrad[istart+2] = wtgrad[istart+2] - wtgradjz;
+
+		wtgrad[jstart+0] = wtgrad[jstart+0] + wtgradjx;
+		wtgrad[jstart+1] = wtgrad[jstart+1] + wtgradjy;
+		wtgrad[jstart+2] = wtgrad[jstart+2] + wtgradjz;
+
 		}
+
 	}
 
 //	Now do the rotational invariance part of the derivatives.
 
-	int istart = (iparent-1)*3;
-
+//	int istart = (iparent-1)*3;
+/*
 	for(int jatm=0;jatm<devSim_dft.natom;jatm++){
 
 		if(jatm != iparent-1){
@@ -956,6 +937,7 @@ __device__ void sswder(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, 
 			}
 		}
 	}
+*/
 
 /*
 	We should now have the derivatives of the SS weights.  Now just add it into
@@ -967,8 +949,49 @@ __device__ void sswder(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, 
 		atomicAdd(&(exc_dev_grad[i]), sswder_grad);	
 	}
 
-	free(uw);
+	//free(uw);
 	free(wtgrad);
+
+}
+
+/*  Madu Manathunga 09/10/2019
+*/
+__device__ QUICKDouble get_unnormalized_weight(QUICKDouble gridx, QUICKDouble gridy, QUICKDouble gridz, int iatm){
+
+	QUICKDouble uw = 1.0;
+	QUICKDouble xiatm, yiatm, ziatm, xjatm, yjatm, zjatm;
+	QUICKDouble rig, rjg, rij;
+
+	xiatm = LOC2(devSim_dft.xyz, 0, iatm, 3, devSim_dft.natom);
+	yiatm = LOC2(devSim_dft.xyz, 1, iatm, 3, devSim_dft.natom);
+	ziatm = LOC2(devSim_dft.xyz, 2, iatm, 3, devSim_dft.natom);
+
+	rig = sqrt(pow((gridx-xiatm),2) + pow((gridy-yiatm),2) + pow((gridz-ziatm),2));
+
+	for(int jatm=0;jatm<devSim_dft.natom;jatm++){
+		if(jatm != iatm){
+			xjatm = LOC2(devSim_dft.xyz, 0, jatm, 3, devSim_dft.natom);
+			yjatm = LOC2(devSim_dft.xyz, 1, jatm, 3, devSim_dft.natom);
+			zjatm = LOC2(devSim_dft.xyz, 2, jatm, 3, devSim_dft.natom);
+
+			rjg = sqrt(pow((gridx-xjatm),2) + pow((gridy-yjatm),2) + pow((gridz-zjatm),2));
+			rij = sqrt(pow((xiatm-xjatm),2) + pow((yiatm-yjatm),2) + pow((ziatm-zjatm),2));
+
+			QUICKDouble confocal = (rig-rjg)/rij;
+
+			if(confocal >= 0.64){
+				uw = 0.0;
+			}else if(confocal >= -0.64){
+				QUICKDouble frctn = confocal/0.64;
+				QUICKDouble gofconfocal = (35.0*frctn-35.0*pow(frctn,3)+21.0*pow(frctn,5)-5.0*pow(frctn,7))/16.0;
+				uw = uw*0.5*(1.0-gofconfocal);
+			}
+
+		}
+
+	}
+
+	return uw;
 
 }
 
