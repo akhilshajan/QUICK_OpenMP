@@ -32,7 +32,7 @@ Yipu Miao	2010-7-14_0.01		: Add HF SCF calculation. Divcon is partly work, but u
 Yipu Miao	2010-5-24_0.01		: Add keyword "atombasis“ and "residuebasis" to specify fragment method. 
 					  if it's residue based, pdb file is needed, while atom based, no pdb file is needed
 Yipu Miao	2010-5-21_0.01		: new quick can now read pdb file as input. But hasn't reach the calculation part.
-
+Madu Manathunga 01/21/2019  2.1.0.0     : Fixed cuda code for working on pascal and volta type gpus.
 ===============================================
 PLEASE FOLLOW THE ABOVE FORMAT TO UPDATE
 KEY CHANGE OF NEW VERSION AND KEEP BUCK-UPING
