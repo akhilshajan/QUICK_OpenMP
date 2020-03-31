@@ -114,24 +114,24 @@ subroutine getmolsad()
             enddo
          endif
          ! From SCF calculation to get initial density guess
-         if(quick_molspec%atom_type_sym(iitemp).ne.'ZN')then ! if not ZN
+         !if(quick_molspec%atom_type_sym(iitemp).ne.'ZN')then ! if not ZN
             call getenergy(failed)
             do i=1,nbasis
                do j=1,nbasis
                   atomdens(iitemp,i,j)=quick_qm_struct%dense(i,j)+quick_qm_struct%denseb(i,j)
                enddo
             enddo
-         else
+         !else
             ! treat Zinc specially
-            open(213,file='znsad.txt')  !Read Zn
-            do i=1,39
-               do j=1,39
-                  read(213,*) ii,jj,temp
-                  atomdens(iitemp,ii,jj)=temp
-               enddo
-            enddo
-            close(213)
-         endif
+         !   open(213,file='znsad.txt')  !Read Zn
+         !   do i=1,39
+         !      do j=1,39
+         !         read(213,*) ii,jj,temp
+         !         atomdens(iitemp,ii,jj)=temp
+         !      enddo
+         !   enddo
+         !   close(213)
+         !endif
 
          call deallocate_calculated
          call dealloc(quick_qm_struct)

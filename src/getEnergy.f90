@@ -95,9 +95,9 @@ subroutine getEnergy(failed)
       !
       ! Blocked by Yipu Miao
       !
-      if(quick_method%PBSOL)then
+      !if(quick_method%PBSOL)then
          if (quick_method%UNRST) then
-            !       if (quick_method%HF) call UHFEnergy
+                   if (quick_method%HF) call UHFEnergy
             !       if (quick_method%DFT) call uDFTEnergy
             !        if (quick_method%SEDFT) call uSEDFTEnergy
          else
@@ -105,7 +105,7 @@ subroutine getEnergy(failed)
             !        if (quick_method%DFT) call DFTenergy
             !        if (quick_method%SEDFT) call SEDFTenergy
          endif
-      endif
+      !endif
 
       ! Now that we have a converged density matrix, it is time to
       ! calculate the energy.  It equals to the summation of different
