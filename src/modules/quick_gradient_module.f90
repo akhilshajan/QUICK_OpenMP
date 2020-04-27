@@ -13,17 +13,43 @@
 ! file, You can obtain one at http://mozilla.org/MPL/2.0/.            !
 !_____________________________________________________________________!
 
-#include "config.h"
+#include "../config.h"
 
-subroutine gradient(failed)
+#ifdef OSHELL
+module quick_oshell_gradient_module
+#else
+module quick_cshell_gradient_module
+#endif
+
+   implicit double precision(a-h,o-z)
+#ifdef OSHELL
+   public  :: oshell_gradient
+   public  :: uscf_gradient
+   private :: get_oshell_kinetic_grad
+   private :: get_oshell_eri_grad
+!   private :: get_oshell_xc_grad
+#else
+   public  :: cshell_gradient
+   public  :: scf_gradient
+   public  :: get_nuc_repulsion_grad
+   public  :: get_ijbas_derivative_new_imp
+   private :: get_cshell_kinetic_grad
+   private :: get_cshell_eri_grad
+!   private :: get_cshell_xc_grad
+#endif 
+contains
+
+#ifdef OSHELL 
+subroutine oshell_gradient(failed)
+#else
+subroutine cshell_gradient(failed)
+#endif
 
 !------------------------------------------------------------------
 ! This subroutine carries out a gradient calculation 
 !------------------------------------------------------------------
 
    use allmod
-!   use quick_cutoff_module, only: schwarzoff
-!   use quick_cshell_module, only: get_eri_precomputables
 
    implicit double precision(a-h,o-z)
 
@@ -52,11 +78,14 @@ subroutine gradient(failed)
       enddo
    enddo
 
+#ifndef OSHELL
    do II=1,nbasis
       do J =1,nbasis
          quick_qm_struct%dense(J,Ii) = quick_qm_struct%denseInt(J,iI)
       enddo
    enddo
+#endif
+
 
 #ifdef CUDA
    call gpu_setup(natom,nbasis, quick_molspec%nElec, quick_molspec%imult, &
@@ -87,7 +116,11 @@ subroutine gradient(failed)
    call getEnergy(failed, .false.)
 
    if (quick_method%analgrad) then
+#ifdef OSHELL
+      call uscf_gradient
+#else
       call scf_gradient
+#endif
    endif
 
 #ifdef CUDA
@@ -125,10 +158,22 @@ subroutine gradient(failed)
 
    return
 
-end subroutine gradient
+#ifdef OSHELL
+end subroutine oshell_gradient
+#else
+end subroutine cshell_gradient
+#endif
 
+
+#ifdef OSHELL
+subroutine uscf_gradient
+#else
 subroutine scf_gradient
+#endif
    use allmod
+#ifdef OSHELL
+   use quick_cshell_gradient_module, only:get_nuc_repulsion_grad
+#endif
    implicit double precision(a-h,o-z)
 
    integer II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
@@ -163,7 +208,7 @@ subroutine scf_gradient
 
    call cpu_time(timer_begin%TNucGrad)
 
-   call get_nuclear_repulsion_grad
+   call get_nuc_repulsion_grad
 
    call cpu_time(timer_end%TNucGrad)
    timer_cumer%TNucGrad = timer_cumer%TNucGrad + timer_end%TNucGrad-timer_begin%TNucGrad
@@ -189,7 +234,11 @@ endif
 !---------------------------------------------------------------------
    call cpu_time(timer_begin%T1eGrad)
 
-   call get_kinetic_grad
+#ifdef OSHELL
+   call get_oshell_kinetic_grad
+#else
+   call get_cshell_kinetic_grad
+#endif
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!Madu!!!!!!!!!!!!!!!!!!!!!!!!
 #ifdef MPIV
@@ -262,7 +311,11 @@ endif
 !---------------------------------------------------------------------
    call cpu_time(timer_begin%T2eGrad)
 
-   call get_electron_replusion_grad
+#ifdef OSHELL
+   call get_oshell_eri_grad
+#else
+   call get_cshell_eri_grad
+#endif
 
    call cpu_time(timer_end%T2eGrad)
    timer_cumer%T2eGrad = timer_cumer%T2eGrad + timer_end%T2eGrad-timer_begin%T2eGrad
@@ -282,7 +335,11 @@ endif
 
       call cpu_time(timer_begin%TExGrad)
 
-      call get_xc_grad
+#ifdef OSHELL
+!      call get_oshell_xc_grad
+#else
+!      call get_cshell_xc_grad
+#endif
 
       call cpu_time(timer_end%TExGrad)
       timer_cumer%TExGrad = timer_cumer%TExGrad + timer_end%TExGrad-timer_begin%TExGrad
@@ -355,9 +412,14 @@ endif
 
    return
 
+#ifdef OSHELL
+end subroutine uscf_gradient
+#else
 end subroutine scf_gradient
+#endif
 
-subroutine get_nuclear_repulsion_grad
+#ifndef OSHELL
+subroutine get_nuc_repulsion_grad
 
    use allmod
    implicit double precision(a-h,o-z)
@@ -435,12 +497,20 @@ subroutine get_nuclear_repulsion_grad
 
    return
 
-end subroutine get_nuclear_repulsion_grad
+end subroutine get_nuc_repulsion_grad
+#endif
 
 
-subroutine get_kinetic_grad
+#ifdef OSHELL
+subroutine get_oshell_kinetic_grad
+#else
+subroutine get_cshell_kinetic_grad
+#endif
 
    use allmod
+#ifdef OSHELL
+   use quick_cshell_gradient_module, only:get_ijbas_derivative_new_imp
+#endif
    implicit double precision(a-h,o-z)
 
    integer II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
@@ -474,10 +544,22 @@ subroutine get_kinetic_grad
    do I=1,nbasis
       do J=1,nbasis
          HOLDJI = 0.d0
+#ifdef OSHELL
+         do k=1,quick_molspec%nelec
+            HOLDJI =HOLDJI+(quick_qm_struct%E(K)*quick_qm_struct%co(J,K)*quick_qm_struct%co(I,K))
+         enddo
+
+         do k=1,quick_molspec%nelecb
+            HOLDJI =HOLDJI+(quick_qm_struct%Eb(K)*quick_qm_struct%cob(J,K)*quick_qm_struct%cob(I,K))
+         enddo
+         quick_scratch%hold(J,I)=HOLDJI
+        
+#else
          do K=1,quick_molspec%nelec/2
          HOLDJI = HOLDJI + (quick_qm_struct%E(K)*quick_qm_struct%co(J,K)*quick_qm_struct%co(I,K))
          enddo
          quick_scratch%hold(J,I) = 2.d0*HOLDJI
+#endif
       enddo
    enddo
 #ifdef MPIV
@@ -526,19 +608,23 @@ subroutine get_kinetic_grad
       ISTART = (quick_basis%ncenter(Ibas)-1) *3
          do Jbas=quick_basis%last_basis_function(quick_basis%ncenter(IBAS))+1,nbasis
             JSTART = (quick_basis%ncenter(Jbas)-1) *3
+#ifdef OSHELL
+            DENSEJI = quick_qm_struct%dense(Jbas,Ibas)+quick_qm_struct%denseb(Jbas,Ibas)
+#else
             DENSEJI = quick_qm_struct%dense(Jbas,Ibas)
+#endif
 
 !  We have selected our two basis functions, now loop over angular momentum.
             do Imomentum=1,3
 
-!  do the Ibas derivatives first. In order to prevent code duplication,
+!  do the Ibas derivatives first. In order to mitigate code duplication,
 !  this has been implemented in a seperate subroutine. 
                ijcon = .true. 
-               call get_ijbas_derivative(Imomentum, Ibas, Jbas, Ibas, ISTART, ijcon, DENSEJI) 
+               call get_ijbas_derivative_new_imp(Imomentum, Ibas, Jbas, Ibas, ISTART, ijcon, DENSEJI) 
 
 !  do the Jbas derivatives.
                ijcon = .false.
-               call get_ijbas_derivative(Imomentum, Ibas, Jbas, Jbas, JSTART, ijcon, DENSEJI)
+               call get_ijbas_derivative_new_imp(Imomentum, Ibas, Jbas, Jbas, JSTART, ijcon, DENSEJI)
 
             enddo
          enddo
@@ -549,14 +635,28 @@ subroutine get_kinetic_grad
 #endif
 
    return
+#ifdef OSHELL
+end subroutine get_oshell_kinetic_grad
+#else
+end subroutine get_cshell_kinetic_grad
+#endif
 
-end subroutine get_kinetic_grad
 
-
-subroutine get_electron_replusion_grad
+#ifdef OSHELL
+subroutine get_oshell_eri_grad
+#else
+subroutine get_cshell_eri_grad
+#endif
 
    use allmod
-   use quick_cutoff_module
+#ifdef OSHELL
+   use quick_cutoff_module, only: oshell_density_cutoff
+   use quick_oshell_grad_module, only: oshell_grad 
+#else
+   use quick_cutoff_module, only:cshell_density_cutoff
+   use quick_cshell_grad_module, only: cshell_grad
+#endif
+
    implicit double precision(a-h,o-z)
 
    integer II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
@@ -570,14 +670,20 @@ subroutine get_electron_replusion_grad
 !  (i.e. the multiplicative constants from the density matrix that 
 !  arise as these are both the exchange and correlation integrals.
 
-   do II=1,jshell
-      do JJ=II,jshell
-         DNtemp=0.0d0
-         call cshell_dnscreen(II,JJ,DNtemp)
-         Cutmatrix(II,JJ)=DNtemp
-         Cutmatrix(JJ,II)=DNtemp
-      enddo
-   enddo
+!   do II=1,jshell
+!      do JJ=II,jshell
+!         DNtemp=0.0d0
+!         call cshell_dnscreen(II,JJ,DNtemp)
+!         Cutmatrix(II,JJ)=DNtemp
+!         Cutmatrix(JJ,II)=DNtemp
+!      enddo
+!   enddo
+
+#ifdef OSHELL
+   call oshell_density_cutoff
+#else
+   call cshell_density_cutoff
+#endif
 
 #ifdef CUDA
    if (quick_method%bCUDA) then
@@ -594,9 +700,11 @@ subroutine get_electron_replusion_grad
 
       call gpu_upload_calculated(quick_qm_struct%o,quick_qm_struct%co, &
       quick_qm_struct%vec,quick_qm_struct%dense)
+      call gpu_upload_calculated_beta(quick_qm_struct%ob,quick_qm_struct%denseb)
       call gpu_upload_cutoff(cutmatrix, quick_method%integralCutoff,quick_method%primLimit)
       call gpu_upload_grad(quick_qm_struct%gradient, quick_method%gradCutoff)
       call gpu_grad(quick_qm_struct%gradient)
+
    else
 #endif
 
@@ -616,6 +724,8 @@ subroutine get_electron_replusion_grad
 #else
       do II=1,jshell
 #endif
+
+!-------------------------- Move this into quick_eri_grad_module-----------------------
          do JJ=II,jshell
          Testtmp=Ycutoff(II,JJ)
             do KK=II,jshell
@@ -630,13 +740,18 @@ subroutine get_electron_replusion_grad
                         cutmatrix(II,LL),cutmatrix(II,KK),cutmatrix(JJ,KK),cutmatrix(JJ,LL))
                         cutoffTest=testCutoff*DNmax
                         if(cutoffTest.gt.quick_method%gradCutoff)then
-                           call shellopt
+#ifdef OSHELL
+                           call oshell_grad
+#else
+                           call cshell_grad
+#endif
                         endif
                      endif
                   endif
                enddo
             enddo
          enddo
+!-------------------------- Move this into quick_eri_grad_module-----------------------
       enddo
 #ifdef CUDA
    endif
@@ -648,322 +763,337 @@ subroutine get_electron_replusion_grad
 
    return
 
-end subroutine get_electron_replusion_grad
-
-
-subroutine get_xc_grad
-
-!-------------------------------------------------------------------------
-!  This subroutine will calculate:
-!  1) The derivative of the exchange/correlation functional energy
-!  with respect to nuclear displacement.
-!  2) The derivative of the weight of the quadrature points with respect
-!  to nuclear displacement.
-!
-!  These two terms arise because of the quadrature used to calculate the
-!  XC terms.
-!  Exc = (Sum over grid points) W(g) f(g)
-!  dExc/dXA = (Sum over grid points) dW(g)/dXA f(g) + W(g) df(g)/dXA
-!
-!  For the W(g) df(g)/dXA term, the derivation was done by Ed Brothers and
-!  is a varient of the method found in the Johnson-Gill-Pople paper.  It can
-!  be found in Ed's thesis, assuming he ever writes it.
-!
-!  One of the actuals element is:
-!  dExc/dXa =2*Dense(Mu,nu)*(Sum over mu centered on A)(Sumover all nu)
-!  Integral((df/drhoa dPhimu/dXA Phinu)-
-!  (2 df/dgaa Grad(rho a) + df/dgab Grad(rho b))
-!  DOT Grad(dPhimu/dXa Phinu))
-!
-!  where F alpha mu nu is the the alpha spin portion of the operator matrix
-!  element mu, nu,
-!  df/drhoa is the derivative of the functional by the alpha density,
-!  df/dgaa is the derivative of the functional by the alpha gradient
-!  invariant, i.e. the dot product of the gradient of the alpha
-!  density with itself.
-!  df/dgab is the derivative of the functional by the dot product of
-!  the gradient of the alpha density with the beta density.
-!  Grad(Phimu Phinu) is the gradient of Phimu times Phinu.
-!-------------------------------------------------------------------------
-
-   use allmod
-   use xc_f90_types_m
-   use xc_f90_lib_m
-   implicit double precision(a-h,o-z)
-
-   integer II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
-   common /hrrstore/II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
-   double precision, dimension(1) :: libxc_rho
-   double precision, dimension(1) :: libxc_sigma
-   double precision, dimension(1) :: libxc_exc
-   double precision, dimension(1) :: libxc_vrhoa
-   double precision, dimension(1) :: libxc_vsigmaa
-   type(xc_f90_pointer_t), dimension(quick_method%nof_functionals) ::xc_func
-   type(xc_f90_pointer_t), dimension(quick_method%nof_functionals) ::xc_info
-   
-   double precision, dimension(natom*50*194) :: init_grid_ptx, init_grid_pty, init_grid_ptz, arr_wtang, arr_rwt, arr_rad3
-   integer, dimension(natom*50*194) :: init_grid_atm
-
-#ifdef MPIV
-   include "mpif.h"
-#endif
-
-#ifdef CUDA
-
-   if(quick_method%bCUDA) then
-
-      call gpu_upload_density_matrix(quick_qm_struct%dense)
-
-      call gpu_upload_dft_grid(quick_dft_grid%gridxb, quick_dft_grid%gridyb, quick_dft_grid%gridzb, quick_dft_grid%gridb_sswt, &
-      quick_dft_grid%gridb_weight, quick_dft_grid%gridb_atm, quick_dft_grid%dweight, quick_dft_grid%basf, quick_dft_grid%primf, &
-      quick_dft_grid%basf_counter, quick_dft_grid%primf_counter, quick_dft_grid%gridb_count, quick_dft_grid%nbins,&
-      quick_dft_grid%nbtotbf, quick_dft_grid%nbtotpf, quick_method%isg, sigrad2)
-
-      call gpu_xcgrad_new_imp(quick_qm_struct%gradient, quick_method%nof_functionals, quick_method%functional_id, &
-quick_method%xc_polarization)
-
-      call gpu_delete_dft_grid()
-
-   endif
+#ifdef OSHELL
+end subroutine get_oshell_eri_grad
 #else
+end subroutine get_cshell_eri_grad
+#endif
 
-   if(quick_method%uselibxc) then
-!  Initiate the libxc functionals
-      do ifunc=1, quick_method%nof_functionals
-         if(quick_method%xc_polarization > 0 ) then
-            call xc_f90_func_init(xc_func(ifunc), xc_info(ifunc), &
-            quick_method%functional_id(ifunc),XC_POLARIZED)
-         else
-            call xc_f90_func_init(xc_func(ifunc), &
-            xc_info(ifunc),quick_method%functional_id(ifunc),XC_UNPOLARIZED)
-         endif
-      enddo
-   endif
+!-------------------------- Fix this after ERI -----------------------
 
-#ifdef MPIV
-      if(bMPI) then
-         irad_init = quick_dft_grid%igridptll(mpirank+1)
-         irad_end = quick_dft_grid%igridptul(mpirank+1)
-      else
-         irad_init = 1
-         irad_end = quick_dft_grid%nbins
-      endif
-      do Ibin=irad_init, irad_end
+#ifdef OSHELL
+!subroutine get_oshell_xc_grad
 #else
-      do Ibin=1, quick_dft_grid%nbins
+!subroutine get_cshell_xc_grad
 #endif
 
-
-!  Calculate the weight of the grid point in the SSW scheme.  If
-!  the grid point has a zero weight, we can skip it.
-
-!    do Ibin=1, quick_dft_grid%nbins
-        Igp=quick_dft_grid%bin_counter(Ibin)+1
-
-        do while(Igp < quick_dft_grid%bin_counter(Ibin+1)+1)
-
-           gridx=quick_dft_grid%gridxb(Igp)
-           gridy=quick_dft_grid%gridyb(Igp)
-           gridz=quick_dft_grid%gridzb(Igp)
-
-           sswt=quick_dft_grid%gridb_sswt(Igp)
-           weight=quick_dft_grid%gridb_weight(Igp)
-           Iatm=quick_dft_grid%gridb_atm(Igp)
-
-!            sswt=SSW(gridx,gridy,gridz,Iatm)
-!            weight=sswt*WTANG(Iang)*RWT(Irad)*rad3
-            
-            if (weight < quick_method%DMCutoff ) then
-               continue
-            else
-
-               icount=quick_dft_grid%basf_counter(Ibin)+1
-               do while (icount < quick_dft_grid%basf_counter(Ibin+1)+1)
-                  Ibas=quick_dft_grid%basf(icount)+1
-
-                  call pteval_new_imp(gridx,gridy,gridz,phi,dphidx,dphidy, &
-                  dphidz,Ibas,icount)
-
-                  phixiao(Ibas)=phi
-                  dphidxxiao(Ibas)=dphidx
-                  dphidyxiao(Ibas)=dphidy
-                  dphidzxiao(Ibas)=dphidz
-
-                  icount=icount+1
-               enddo
-
-               
-
-!  evaluate the densities at the grid point and the gradient at that grid point            
-               call denspt_cshell(gridx,gridy,gridz,density,densityb,gax,gay,gaz, &
-               gbx,gby,gbz,Ibin)
-
-               if (density < quick_method%DMCutoff ) then
-                  continue
-
-               else
-!  This allows the calculation of the derivative of the functional
-!  with regard to the density (dfdr), with regard to the alpha-alpha
-!  density invariant (df/dgaa), and the alpha-beta density invariant.
-
-                  densitysum=2.0d0*density
-                  sigma=4.0d0*(gax*gax+gay*gay+gaz*gaz)
-
-                  libxc_rho(1)=densitysum
-                  libxc_sigma(1)=sigma
-
-                  tsttmp_exc=0.0d0
-                  tsttmp_vrhoa=0.0d0
-                  tsttmp_vsigmaa=0.0d0
-
-                  if(quick_method%uselibxc) then
-                     do ifunc=1, quick_method%nof_functionals
-                        select case(xc_f90_info_family(xc_info(ifunc)))
-                           case(XC_FAMILY_LDA)
-                              call xc_f90_lda_exc_vxc(xc_func(ifunc),1,libxc_rho(1), &
-                              libxc_exc(1), libxc_vrhoa(1))
-                           case(XC_FAMILY_GGA, XC_FAMILY_HYB_GGA)
-                              call xc_f90_gga_exc_vxc(xc_func(ifunc),1,libxc_rho(1), libxc_sigma(1), &
-                              libxc_exc(1), libxc_vrhoa(1), libxc_vsigmaa(1))
-                        end select
-
-                        tsttmp_exc=tsttmp_exc+libxc_exc(1)
-                        tsttmp_vrhoa=tsttmp_vrhoa+libxc_vrhoa(1)
-                        tsttmp_vsigmaa=tsttmp_vsigmaa+libxc_vsigmaa(1)
-                     enddo
-
-                     zkec=densitysum*tsttmp_exc
-                     dfdr=tsttmp_vrhoa
-                     xiaodot=tsttmp_vsigmaa*4
-
-                     xdot=xiaodot*gax
-                     ydot=xiaodot*gay
-                     zdot=xiaodot*gaz
-                  
-                  elseif(quick_method%BLYP) then
-
-                     call becke_E(density, densityb, gax, gay, gaz, gbx, gby,gbz, Ex)
-                     call lyp_e(density, densityb, gax, gay, gaz, gbx, gby, gbz,Ec)
-
-                     zkec=Ex+Ec
-
-                     call becke(density, gax, gay, gaz, gbx, gby, gbz, dfdr, dfdgaa, dfdgab)
-                     call lyp(density, densityb, gax, gay, gaz, gbx, gby, gbz, dfdr2, dfdgaa2, dfdgab2)
-            
-                     dfdr = dfdr + dfdr2
-                     dfdgaa = dfdgaa + dfdgaa2
-                     dfdgab = dfdgab + dfdgab2
-
-                     xdot = 2.d0*dfdgaa*gax + dfdgab*gbx
-                     ydot = 2.d0*dfdgaa*gay + dfdgab*gby
-                     zdot = 2.d0*dfdgaa*gaz + dfdgab*gbz
-
-                  elseif(quick_method%B3LYP) then
-
-                     call b3lyp_e(densitysum, sigma, zkec)
-                     call b3lypf(densitysum, sigma, dfdr, xiaodot)
-
-                     xdot=xiaodot*gax
-                     ydot=xiaodot*gay
-                     zdot=xiaodot*gaz
-
-                  endif
-
-! Now loop over basis functions and compute the addition to the matrix
-! element.
-                  icount=quick_dft_grid%basf_counter(Ibin)+1
-                  do while (icount < quick_dft_grid%basf_counter(Ibin+1)+1)
-                     Ibas=quick_dft_grid%basf(icount)+1
-
-                     phi=phixiao(Ibas)
-                     dphidx=dphidxxiao(Ibas)
-                     dphidy=dphidyxiao(Ibas)
-                     dphidz=dphidzxiao(Ibas)
-
-                     !call pteval_new_imp(gridx,gridy,gridz,phi,dphidx,dphidy, &
-                     !dphidz,Ibas,icount)
-
-
-                     quicktest = DABS(dphidx+dphidy+dphidz+phi)
-                     
-                     if (quicktest < quick_method%DMCutoff ) then
-                        continue
-                     else
-                        call pt2der(gridx,gridy,gridz,dxdx,dxdy,dxdz, &
-                        dydy,dydz,dzdz,Ibas,icount)
-
-                        Ibasstart=(quick_basis%ncenter(Ibas)-1)*3
-
-                        jcount=quick_dft_grid%basf_counter(Ibin)+1
-                        do while(jcount<quick_dft_grid%basf_counter(Ibin+1)+1)
-                           Jbas = quick_dft_grid%basf(jcount)+1 
-
-                           phi2=phixiao(Jbas)
-                           dphi2dx=dphidxxiao(Jbas)
-                           dphi2dy=dphidyxiao(Jbas)
-                           dphi2dz=dphidzxiao(Jbas)
-
-                           !call pteval_new_imp(gridx,gridy,gridz,phi2,dphi2dx,dphi2dy, &
-                           !dphi2dz,Jbas,jcount)
-
-                           quick_qm_struct%gradient(Ibasstart+1) =quick_qm_struct%gradient(Ibasstart+1) - &
-                           2.d0*quick_qm_struct%dense(Ibas,Jbas)*weight*&
-                           (dfdr*dphidx*phi2 &
-                           + xdot*(dxdx*phi2+dphidx*dphi2dx) &
-                           + ydot*(dxdy*phi2+dphidx*dphi2dy) &
-                           + zdot*(dxdz*phi2+dphidx*dphi2dz))
-                           quick_qm_struct%gradient(Ibasstart+2)= quick_qm_struct%gradient(Ibasstart+2) - &
-                           2.d0*quick_qm_struct%dense(Ibas,Jbas)*weight*&
-                           (dfdr*dphidy*phi2 &
-                           + xdot*(dxdy*phi2+dphidy*dphi2dx) &
-                           + ydot*(dydy*phi2+dphidy*dphi2dy) &
-                           + zdot*(dydz*phi2+dphidy*dphi2dz))
-                           quick_qm_struct%gradient(Ibasstart+3)= quick_qm_struct%gradient(Ibasstart+3) - &
-                           2.d0*quick_qm_struct%dense(Ibas,Jbas)*weight*&
-                           (dfdr*dphidz*phi2 &
-                           + xdot*(dxdz*phi2+dphidz*dphi2dx) &
-                           + ydot*(dydz*phi2+dphidz*dphi2dy) &
-                           + zdot*(dzdz*phi2+dphidz*dphi2dz))
-                           jcount=jcount+1
-                        enddo
-                     endif
-
-                  icount=icount+1
-                  enddo
-
-!  We are now completely done with the derivative of the exchange correlation energy with nuclear displacement
-!  at this point. Now we need to do the quadrature weight derivatives. At this point in the loop, we know that
-!  the density and the weight are not zero. Now check to see fi the weight is one. If it isn't, we need to
-!  actually calculate the energy and the derivatives of the quadrature at this point. Due to the volume of code,
-!  this is done in sswder. Note that if a new weighting scheme is ever added, this needs
-!  to be modified with a second subprogram.
-                  if (sswt == 1.d0) then
-                     continue
-                  else
-                     call sswder(gridx,gridy,gridz,zkec,weight/sswt,Iatm)
-                  endif
-               endif
-            endif
-!         enddo
-
-      Igp=Igp+1
-      enddo
-   enddo
-
-   if(quick_method%uselibxc) then
-!  Uninitilize libxc functionals
-      do ifunc=1, quick_method%nof_functionals
-         call xc_f90_func_end(xc_func(ifunc))
-      enddo
-   endif
+!!-------------------------------------------------------------------------
+!!  This subroutine will calculate:
+!!  1) The derivative of the exchange/correlation functional energy
+!!  with respect to nuclear displacement.
+!!  2) The derivative of the weight of the quadrature points with respect
+!!  to nuclear displacement.
+!!
+!!  These two terms arise because of the quadrature used to calculate the
+!!  XC terms.
+!!  Exc = (Sum over grid points) W(g) f(g)
+!!  dExc/dXA = (Sum over grid points) dW(g)/dXA f(g) + W(g) df(g)/dXA
+!!
+!!  For the W(g) df(g)/dXA term, the derivation was done by Ed Brothers and
+!!  is a varient of the method found in the Johnson-Gill-Pople paper.  It can
+!!  be found in Ed's thesis, assuming he ever writes it.
+!!
+!!  One of the actuals element is:
+!!  dExc/dXa =2*Dense(Mu,nu)*(Sum over mu centered on A)(Sumover all nu)
+!!  Integral((df/drhoa dPhimu/dXA Phinu)-
+!!  (2 df/dgaa Grad(rho a) + df/dgab Grad(rho b))
+!!  DOT Grad(dPhimu/dXa Phinu))
+!!
+!!  where F alpha mu nu is the the alpha spin portion of the operator matrix
+!!  element mu, nu,
+!!  df/drhoa is the derivative of the functional by the alpha density,
+!!  df/dgaa is the derivative of the functional by the alpha gradient
+!!  invariant, i.e. the dot product of the gradient of the alpha
+!!  density with itself.
+!!  df/dgab is the derivative of the functional by the dot product of
+!!  the gradient of the alpha density with the beta density.
+!!  Grad(Phimu Phinu) is the gradient of Phimu times Phinu.
+!!-------------------------------------------------------------------------
+!
+!   use allmod
+!   use xc_f90_types_m
+!   use xc_f90_lib_m
+!   implicit double precision(a-h,o-z)
+!
+!   integer II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
+!   common /hrrstore/II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
+!   double precision, dimension(1) :: libxc_rho
+!   double precision, dimension(1) :: libxc_sigma
+!   double precision, dimension(1) :: libxc_exc
+!   double precision, dimension(1) :: libxc_vrhoa
+!   double precision, dimension(1) :: libxc_vsigmaa
+!   type(xc_f90_pointer_t), dimension(quick_method%nof_functionals) ::xc_func
+!   type(xc_f90_pointer_t), dimension(quick_method%nof_functionals) ::xc_info
+!   
+!   double precision, dimension(natom*50*194) :: init_grid_ptx, init_grid_pty, init_grid_ptz, arr_wtang, arr_rwt, arr_rad3
+!   integer, dimension(natom*50*194) :: init_grid_atm
+!
+!#ifdef MPIV
+!   include "mpif.h"
+!#endif
+!
+!#ifdef CUDA
+!
+!   if(quick_method%bCUDA) then
+!
+!      call gpu_upload_density_matrix(quick_qm_struct%dense)
+!
+!      call gpu_upload_dft_grid(quick_dft_grid%gridxb, quick_dft_grid%gridyb, quick_dft_grid%gridzb, quick_dft_grid%gridb_sswt, &
+!      quick_dft_grid%gridb_weight, quick_dft_grid%gridb_atm, quick_dft_grid%dweight, quick_dft_grid%basf, quick_dft_grid%primf, &
+!      quick_dft_grid%basf_counter, quick_dft_grid%primf_counter, quick_dft_grid%gridb_count, quick_dft_grid%nbins,&
+!      quick_dft_grid%nbtotbf, quick_dft_grid%nbtotpf, quick_method%isg, sigrad2)
+!
+!      call gpu_xcgrad_new_imp(quick_qm_struct%gradient, quick_method%nof_functionals, quick_method%functional_id, &
+!quick_method%xc_polarization)
+!
+!      call gpu_delete_dft_grid()
+!
+!   endif
+!#else
+!
+!   if(quick_method%uselibxc) then
+!!  Initiate the libxc functionals
+!      do ifunc=1, quick_method%nof_functionals
+!         if(quick_method%xc_polarization > 0 ) then
+!            call xc_f90_func_init(xc_func(ifunc), xc_info(ifunc), &
+!            quick_method%functional_id(ifunc),XC_POLARIZED)
+!         else
+!            call xc_f90_func_init(xc_func(ifunc), &
+!            xc_info(ifunc),quick_method%functional_id(ifunc),XC_UNPOLARIZED)
+!         endif
+!      enddo
+!   endif
+!
+!#ifdef MPIV
+!      if(bMPI) then
+!         irad_init = quick_dft_grid%igridptll(mpirank+1)
+!         irad_end = quick_dft_grid%igridptul(mpirank+1)
+!      else
+!         irad_init = 1
+!         irad_end = quick_dft_grid%nbins
+!      endif
+!      do Ibin=irad_init, irad_end
+!#else
+!      do Ibin=1, quick_dft_grid%nbins
+!#endif
+!
+!
+!!  Calculate the weight of the grid point in the SSW scheme.  If
+!!  the grid point has a zero weight, we can skip it.
+!
+!!    do Ibin=1, quick_dft_grid%nbins
+!        Igp=quick_dft_grid%bin_counter(Ibin)+1
+!
+!        do while(Igp < quick_dft_grid%bin_counter(Ibin+1)+1)
+!
+!           gridx=quick_dft_grid%gridxb(Igp)
+!           gridy=quick_dft_grid%gridyb(Igp)
+!           gridz=quick_dft_grid%gridzb(Igp)
+!
+!           sswt=quick_dft_grid%gridb_sswt(Igp)
+!           weight=quick_dft_grid%gridb_weight(Igp)
+!           Iatm=quick_dft_grid%gridb_atm(Igp)
+!
+!!            sswt=SSW(gridx,gridy,gridz,Iatm)
+!!            weight=sswt*WTANG(Iang)*RWT(Irad)*rad3
+!            
+!            if (weight < quick_method%DMCutoff ) then
+!               continue
+!            else
+!
+!               icount=quick_dft_grid%basf_counter(Ibin)+1
+!               do while (icount < quick_dft_grid%basf_counter(Ibin+1)+1)
+!                  Ibas=quick_dft_grid%basf(icount)+1
+!
+!                  call pteval_new_imp(gridx,gridy,gridz,phi,dphidx,dphidy, &
+!                  dphidz,Ibas,icount)
+!
+!                  phixiao(Ibas)=phi
+!                  dphidxxiao(Ibas)=dphidx
+!                  dphidyxiao(Ibas)=dphidy
+!                  dphidzxiao(Ibas)=dphidz
+!
+!                  icount=icount+1
+!               enddo
+!
+!               
+!
+!!  evaluate the densities at the grid point and the gradient at that grid point            
+!               call denspt_cshell(gridx,gridy,gridz,density,densityb,gax,gay,gaz, &
+!               gbx,gby,gbz,Ibin)
+!
+!               if (density < quick_method%DMCutoff ) then
+!                  continue
+!
+!               else
+!!  This allows the calculation of the derivative of the functional
+!!  with regard to the density (dfdr), with regard to the alpha-alpha
+!!  density invariant (df/dgaa), and the alpha-beta density invariant.
+!
+!                  densitysum=2.0d0*density
+!                  sigma=4.0d0*(gax*gax+gay*gay+gaz*gaz)
+!
+!                  libxc_rho(1)=densitysum
+!                  libxc_sigma(1)=sigma
+!
+!                  tsttmp_exc=0.0d0
+!                  tsttmp_vrhoa=0.0d0
+!                  tsttmp_vsigmaa=0.0d0
+!
+!                  if(quick_method%uselibxc) then
+!                     do ifunc=1, quick_method%nof_functionals
+!                        select case(xc_f90_info_family(xc_info(ifunc)))
+!                           case(XC_FAMILY_LDA)
+!                              call xc_f90_lda_exc_vxc(xc_func(ifunc),1,libxc_rho(1), &
+!                              libxc_exc(1), libxc_vrhoa(1))
+!                           case(XC_FAMILY_GGA, XC_FAMILY_HYB_GGA)
+!                              call xc_f90_gga_exc_vxc(xc_func(ifunc),1,libxc_rho(1), libxc_sigma(1), &
+!                              libxc_exc(1), libxc_vrhoa(1), libxc_vsigmaa(1))
+!                        end select
+!
+!                        tsttmp_exc=tsttmp_exc+libxc_exc(1)
+!                        tsttmp_vrhoa=tsttmp_vrhoa+libxc_vrhoa(1)
+!                        tsttmp_vsigmaa=tsttmp_vsigmaa+libxc_vsigmaa(1)
+!                     enddo
+!
+!                     zkec=densitysum*tsttmp_exc
+!                     dfdr=tsttmp_vrhoa
+!                     xiaodot=tsttmp_vsigmaa*4
+!
+!                     xdot=xiaodot*gax
+!                     ydot=xiaodot*gay
+!                     zdot=xiaodot*gaz
+!                  
+!                  elseif(quick_method%BLYP) then
+!
+!                     call becke_E(density, densityb, gax, gay, gaz, gbx, gby,gbz, Ex)
+!                     call lyp_e(density, densityb, gax, gay, gaz, gbx, gby, gbz,Ec)
+!
+!                     zkec=Ex+Ec
+!
+!                     call becke(density, gax, gay, gaz, gbx, gby, gbz, dfdr, dfdgaa, dfdgab)
+!                     call lyp(density, densityb, gax, gay, gaz, gbx, gby, gbz, dfdr2, dfdgaa2, dfdgab2)
+!            
+!                     dfdr = dfdr + dfdr2
+!                     dfdgaa = dfdgaa + dfdgaa2
+!                     dfdgab = dfdgab + dfdgab2
+!
+!                     xdot = 2.d0*dfdgaa*gax + dfdgab*gbx
+!                     ydot = 2.d0*dfdgaa*gay + dfdgab*gby
+!                     zdot = 2.d0*dfdgaa*gaz + dfdgab*gbz
+!
+!                  elseif(quick_method%B3LYP) then
+!
+!                     call b3lyp_e(densitysum, sigma, zkec)
+!                     call b3lypf(densitysum, sigma, dfdr, xiaodot)
+!
+!                     xdot=xiaodot*gax
+!                     ydot=xiaodot*gay
+!                     zdot=xiaodot*gaz
+!
+!                  endif
+!
+!! Now loop over basis functions and compute the addition to the matrix
+!! element.
+!                  icount=quick_dft_grid%basf_counter(Ibin)+1
+!                  do while (icount < quick_dft_grid%basf_counter(Ibin+1)+1)
+!                     Ibas=quick_dft_grid%basf(icount)+1
+!
+!                     phi=phixiao(Ibas)
+!                     dphidx=dphidxxiao(Ibas)
+!                     dphidy=dphidyxiao(Ibas)
+!                     dphidz=dphidzxiao(Ibas)
+!
+!                     !call pteval_new_imp(gridx,gridy,gridz,phi,dphidx,dphidy, &
+!                     !dphidz,Ibas,icount)
+!
+!
+!                     quicktest = DABS(dphidx+dphidy+dphidz+phi)
+!                     
+!                     if (quicktest < quick_method%DMCutoff ) then
+!                        continue
+!                     else
+!                        call pt2der(gridx,gridy,gridz,dxdx,dxdy,dxdz, &
+!                        dydy,dydz,dzdz,Ibas,icount)
+!
+!                        Ibasstart=(quick_basis%ncenter(Ibas)-1)*3
+!
+!                        jcount=quick_dft_grid%basf_counter(Ibin)+1
+!                        do while(jcount<quick_dft_grid%basf_counter(Ibin+1)+1)
+!                           Jbas = quick_dft_grid%basf(jcount)+1 
+!
+!                           phi2=phixiao(Jbas)
+!                           dphi2dx=dphidxxiao(Jbas)
+!                           dphi2dy=dphidyxiao(Jbas)
+!                           dphi2dz=dphidzxiao(Jbas)
+!
+!                           !call pteval_new_imp(gridx,gridy,gridz,phi2,dphi2dx,dphi2dy, &
+!                           !dphi2dz,Jbas,jcount)
+!
+!                           quick_qm_struct%gradient(Ibasstart+1) =quick_qm_struct%gradient(Ibasstart+1) - &
+!                           2.d0*quick_qm_struct%dense(Ibas,Jbas)*weight*&
+!                           (dfdr*dphidx*phi2 &
+!                           + xdot*(dxdx*phi2+dphidx*dphi2dx) &
+!                           + ydot*(dxdy*phi2+dphidx*dphi2dy) &
+!                           + zdot*(dxdz*phi2+dphidx*dphi2dz))
+!                           quick_qm_struct%gradient(Ibasstart+2)= quick_qm_struct%gradient(Ibasstart+2) - &
+!                           2.d0*quick_qm_struct%dense(Ibas,Jbas)*weight*&
+!                           (dfdr*dphidy*phi2 &
+!                           + xdot*(dxdy*phi2+dphidy*dphi2dx) &
+!                           + ydot*(dydy*phi2+dphidy*dphi2dy) &
+!                           + zdot*(dydz*phi2+dphidy*dphi2dz))
+!                           quick_qm_struct%gradient(Ibasstart+3)= quick_qm_struct%gradient(Ibasstart+3) - &
+!                           2.d0*quick_qm_struct%dense(Ibas,Jbas)*weight*&
+!                           (dfdr*dphidz*phi2 &
+!                           + xdot*(dxdz*phi2+dphidz*dphi2dx) &
+!                           + ydot*(dydz*phi2+dphidz*dphi2dy) &
+!                           + zdot*(dzdz*phi2+dphidz*dphi2dz))
+!                           jcount=jcount+1
+!                        enddo
+!                     endif
+!
+!                  icount=icount+1
+!                  enddo
+!
+!!  We are now completely done with the derivative of the exchange correlation energy with nuclear displacement
+!!  at this point. Now we need to do the quadrature weight derivatives. At this point in the loop, we know that
+!!  the density and the weight are not zero. Now check to see fi the weight is one. If it isn't, we need to
+!!  actually calculate the energy and the derivatives of the quadrature at this point. Due to the volume of code,
+!!  this is done in sswder. Note that if a new weighting scheme is ever added, this needs
+!!  to be modified with a second subprogram.
+!                  if (sswt == 1.d0) then
+!                     continue
+!                  else
+!                     call sswder(gridx,gridy,gridz,zkec,weight/sswt,Iatm)
+!                  endif
+!               endif
+!            endif
+!!         enddo
+!
+!      Igp=Igp+1
+!      enddo
+!   enddo
+!
+!   if(quick_method%uselibxc) then
+!!  Uninitilize libxc functionals
+!      do ifunc=1, quick_method%nof_functionals
+!         call xc_f90_func_end(xc_func(ifunc))
+!      enddo
+!   endif
+!#endif
+!
+!   return
+!
+#ifdef OSHELL
+!end subroutine get_oshell_xc_grad
+#else
+!end subroutine get_cshell_xc_grad
 #endif
+!
+!!-------------------------- Fix this after ERI -----------------------
 
-   return
-
-end subroutine get_xc_grad
-
-
-subroutine get_ijbas_derivative(Imomentum, Ibas, Jbas, mbas, mstart, ijcon, DENSEJI)
+#ifndef OSHELL
+subroutine get_ijbas_derivative_new_imp(Imomentum, Ibas, Jbas, mbas, mstart, ijcon, DENSEJI)
 
 !-------------------------------------------------------------------------
 !  The purpose of this subroutine is to compute the I and J basis function
@@ -1038,4 +1168,12 @@ subroutine get_ijbas_derivative(Imomentum, Ibas, Jbas, mbas, mstart, ijcon, DENS
 
    return
 
-end subroutine get_ijbas_derivative
+end subroutine get_ijbas_derivative_new_imp
+#endif
+
+
+#ifdef OSHELL
+end module quick_oshell_gradient_module
+#else
+end module quick_cshell_gradient_module
+#endif

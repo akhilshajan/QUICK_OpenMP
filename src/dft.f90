@@ -625,6 +625,8 @@ end subroutine
 
 subroutine dftoperator
    use allmod
+   use quick_cutoff_module
+   use quick_cshell_module, only: cshell
 
 !#ifndef CUDA
    use xc_f90_types_m
@@ -772,7 +774,7 @@ write(*,*) "E0=",quick_qm_struct%Eel
    do II=1,jshell
       do JJ=II,jshell
          DNtemp=0.0d0
-         call DNscreen(II,JJ,DNtemp)
+         call cshell_dnscreen(II,JJ,DNtemp)
          Cutmatrix(II,JJ)=DNtemp
          Cutmatrix(JJ,II)=DNtemp
       enddo
@@ -824,7 +826,7 @@ write(*,*) "E0=",quick_qm_struct%Eel
                            cutmatrix(II,LL),cutmatrix(II,KK),cutmatrix(JJ,KK),cutmatrix(JJ,LL))
                      cutoffTest=testCutoff*DNmax
                      if(cutoffTest.gt.quick_method%integralCutoff)then
-                        call shell
+                        call cshell
                      endif
                      !            else
                      !             print*,II,JJ,KK,LL,cutoffTest,testCutoff,DNmax
@@ -863,7 +865,7 @@ write(*,*) "E0=",quick_qm_struct%Eel
                   cutmatrix(JJ,KK), &
                   cutmatrix(JJ,LL))
                      if(cutoffTest*DNmax.gt.quick_method%integralCutoff)then
-                        call shell
+                        call cshell
                      endif
                   endif
                enddo
@@ -1135,6 +1137,7 @@ end subroutine dftoperator
 
 subroutine dftoperatordelta
    use allmod
+   use quick_cutoff_module
    implicit double precision(a-h,o-z)
 
    ! The purpose of this subroutine is to form the operator matrix
@@ -1268,7 +1271,7 @@ subroutine dftoperatordelta
    do II=1,jshell
       do JJ=II,jshell
          DNtemp=0.0d0
-         call DNscreen(II,JJ,DNtemp)
+         call cshell_dnscreen(II,JJ,DNtemp)
          Cutmatrix(II,JJ)=DNtemp
          Cutmatrix(JJ,II)=DNtemp
       enddo
@@ -2686,6 +2689,8 @@ subroutine gridformnew(iitype,distance,iiang)
    !  and Euler-Maclaurin radial grids.
 
    !  First, calculate the angular points and weights.
+
+   write(*,*) iitype,distance,quick_molspec%iattype(iitype)
 
    if(quick_molspec%iattype(iitype).ge.1.and.quick_molspec%iattype(iitype).le.2)then
       if(distance.lt.hpartpara(1))then

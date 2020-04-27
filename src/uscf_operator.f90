@@ -1,67 +1,51 @@
 #include "config.h"
 
-!  Created by Madu Manathunga on 08/07/2019 
-!  Copyright 2019 Michigan State University. All rights reserved.
+!  Created by Madu Manathunga on 04/07/2020 
+!  Copyright 2020 Michigan State University. All rights reserved.
 !
 !-------------------------------------------------------
 !  scfoperator
 !-------------------------------------------------------
-!  08/07/2019 Madu Manathunga: Reorganized and improved content 
-!                             written by previous authors
-!  11/14/2010 Yipu Miao: Clean up code with the integration of
-!                       some subroutines
+!  04/07/2020 Madu Manathunga: Reorganized and improved content 
+!                             written by previous authors, implemented
+!                             new dft version
 !  03/21/2007 Alessandro Genoni: Implemented ECP integral contribution
 !                       for operator matrix
 !  11/27/2001 Ed Brothers: wrote the original code
 !-------------------------------------------------------
 
-subroutine scf_operator(oneElecO, deltaO)
-!-------------------------------------------------------
-!  The purpose of this subroutine is to form the operator matrix
-!  for a full Hartree-Fock/DFT calculation, i.e. the Fock matrix.  The
-!  Fock matrix is as follows:  O(I,J) =  F(I,J) = KE(I,J) + IJ attraction
-!  to each atom + repulsion_prim
-!  with each possible basis  - 1/2 exchange with each
-!  possible basis. Note that the Fock matrix is symmetric.
-!  This code now also does all the HF energy calculation. Ed.
-!-------------------------------------------------------
+subroutine uscf_operator(oneElecO,deltaO)
    use allmod
-   use quick_cshell_module
+   use quick_oshell_module
    use quick_cutoff_module
-   implicit none
+   implicit double precision(a-h,o-z)
 
-#ifdef MPIV
-   include "mpif.h"
-#endif
-   double precision oneElecO(nbasis,nbasis)
+   double precision :: oneElecO(nbasis,nbasis)
    logical :: deltaO
-   integer II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2, I, J
-   common /hrrstore/II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
-#ifdef MPIV
-   integer ierror
-   double precision,allocatable:: temp2d(:,:)
-   allocate(temp2d(nbasis,nbasis))
-#endif
+
+! The purpose of this subroutine is to form the operator matrices
+! for a uscf calculation, i.e. alpha & beta Fock matrices.  The
+! Fock matrix is as follows:
+
+! O(I,J) =  F(I,J) = KE(I,J) + IJ attraction to each atom + repulsion_prim
+! with each possible basis  - 1/2 exchange with each
+! possible basis.
+! Note that the Fock matrix is symmetric.
+
 !-----------------------------------------------------------------
 !  Step 1. evaluate 1e integrals
 !-----------------------------------------------------------------
-
-#ifdef MPIV
-   if(master) then
-#endif
-
-!  fetch 1e-integral from 1st time
    call copyDMat(oneElecO,quick_qm_struct%o,nbasis)
+   call copyDMat(oneElecO,quick_qm_struct%ob,nbasis)
+ 
+   if(quick_method%printEnergy) call get1eEnergy_uscf(oneElecO)
 
-!  Now calculate kinetic and attraction energy first.
-   if (quick_method%printEnergy) call get1eEnergy()
-
-!  Sum the ECP integrals to the partial Fock matrix
-   if (quick_method%ecp) call ecpoperator()
-
-#ifdef MPIV
-   endif
-#endif
+! Alessandro GENONI 03/21/2007
+! Sum the ECP integrals to the partial Fock matrix
+!
+!    if (quick_method%ecp) then
+!      call ecpoperator
+!    end if
 
 !  if only calculate operation difference
    if (deltaO) then
@@ -69,42 +53,32 @@ subroutine scf_operator(oneElecO, deltaO)
       call CopyDMat(quick_qm_struct%dense,quick_qm_struct%denseSave,nbasis)
       call CopyDMat(quick_qm_struct%oSave,quick_qm_struct%o,nbasis)
 
+      call CopyDMat(quick_qm_struct%denseb,quick_qm_struct%densebSave,nbasis)
+      call CopyDMat(quick_qm_struct%obSave,quick_qm_struct%ob,nbasis)
+
       do I=1,nbasis; do J=1,nbasis
          quick_qm_struct%dense(J,I)=quick_qm_struct%dense(J,I)-quick_qm_struct%denseOld(J,I)
+         quick_qm_struct%denseb(J,I)=quick_qm_struct%denseb(J,I)-quick_qm_struct%densebOld(J,I)
       enddo; enddo
 
    endif
 
-!  Delta density matrix cutoff
-   call cshell_density_cutoff
+!-----------------------------------------------------------------
+! Step 2. evaluate 2e integrals
+!-----------------------------------------------------------------
+!
+! The previous two terms are the one electron part of the Fock matrix.
+! The next two terms define the two electron part.
+!-----------------------------------------------------------------
 
-#ifdef MPIV
-   if(master) then
-#endif
-!  Start the timer for 2e-integrals
+   call oshell_density_cutoff
+
    call cpu_time(timer_begin%T2e)
-#ifdef MPIV
-   endif
-#endif
-
-#ifdef MPIV
-!  Reset the operator value for slave nodes.
-   if (.not.master) then
-      do i=1,nbasis
-         do j=1,nbasis
-            quick_qm_struct%o(i,j)=0
-         enddo
-      enddo
-   endif   
-
-!  sync every nodes
-   call MPI_BARRIER(MPI_COMM_WORLD,mpierror)
-#endif
 
 #ifdef CUDA
    if (quick_method%bCUDA) then
 
-      if(quick_method%HF)then      
+      if(quick_method%HF)then
          call gpu_upload_method(0, 1.0d0)
       elseif(quick_method%uselibxc)then
         call gpu_upload_method(3, quick_method%x_hybrid_coeff)
@@ -118,104 +92,29 @@ subroutine scf_operator(oneElecO, deltaO)
       quick_qm_struct%vec,quick_qm_struct%dense)
       call gpu_upload_cutoff(cutmatrix,quick_method%integralCutoff,quick_method%primLimit)
 
-   endif
-#endif
+      call gpu_upload_calculated_beta(quick_qm_struct%ob, quick_qm_struct%denseb)
 
-   if (quick_method%nodirect) then
-#ifdef CUDA
-      call gpu_addint(quick_qm_struct%o, intindex, intFileName)
+      call gpu_get_oshell_eri(quick_qm_struct%o, quick_qm_struct%ob)
+
+   endif   
+   
 #else
-#ifndef MPI
-      call addInt
-#endif
-#endif
-   else
-!-----------------------------------------------------------------
-! Step 2. evaluate 2e integrals
-!-----------------------------------------------------------------
-!
-! The previous two terms are the one electron part of the Fock matrix.
-! The next two terms define the two electron part.
-!-----------------------------------------------------------------
-#ifdef CUDA
-      if (quick_method%bCUDA) then
-         call gpu_get2e(quick_qm_struct%o)
-      else
-#endif
-!  Schwartz cutoff is implemented here. (ab|cd)**2<=(ab|ab)*(cd|cd)
-!  Reference: Strout DL and Scuseria JCP 102(1995),8448.
 
-#ifdef MPIV
-!  Every nodes will take about jshell/nodes shells integrals such as 1 water, which has 
-!  4 jshell, and 2 nodes will take 2 jshell respectively.
-   if(bMPI) then
-      do i=1,mpi_jshelln(mpirank)
-         ii=mpi_jshell(mpirank,i)
-         call get_cshell_eri(II)
-      enddo
-   else
-      do II=1,jshell
-         call get_cshell_eri(II)
-      enddo
-   endif        
-#else
-      do II=1,jshell
-         call get_cshell_eri(II)
-      enddo
+    do II=1,jshell
+        call get_oshell_eri(II)
+    enddo
+
 #endif
 
-#ifdef CUDA
-      endif
-#endif
-   endif
-
-#ifdef MPIV
-call MPI_BARRIER(MPI_COMM_WORLD,mpierror)
-!  After evaluation of 2e integrals, we can communicate every node so
-!  that we can sum all integrals. slave node will send infos.
-   if(.not.master) then
-!  Copy Opertor to a temp array and then send it to master
-      call copyDMat(quick_qm_struct%o,temp2d,nbasis)
-!  Send operator to master node
-      call MPI_SEND(temp2d,nbasis*nbasis,mpi_double_precision,0,mpirank,MPI_COMM_WORLD,IERROR)
-   else
-
-!  master node will receive infos from every nodes
-      do i=1,mpisize-1
-!  receive opertors from slave nodes
-         call MPI_RECV(temp2d,nbasis*nbasis,mpi_double_precision,i,i,MPI_COMM_WORLD,MPI_STATUS,IERROR)
-!   Sum them into operator
-         do ii=1,nbasis
-            do jj=1,nbasis
-               quick_qm_struct%o(ii,jj)=quick_qm_struct%o(ii,jj)+temp2d(ii,jj)
-            enddo
-         enddo
-      enddo
-   endif
-!  Sync all nodes
-   call MPI_BARRIER(MPI_COMM_WORLD,mpierror)
-#endif
-
-!  recover density if calculate difference
-   if (deltaO) call CopyDMat(quick_qm_struct%denseSave,quick_qm_struct%dense,nbasis)
-
-#ifdef MPIV
-   if (master) then
-#endif
 !  Remember the operator is symmetric
    call copySym(quick_qm_struct%o,nbasis)
+   call copySym(quick_qm_struct%ob,nbasis)
 
-!  Give the energy, E=1/2*sigma[i,j](Pij*(Fji+Hcoreji))
-   if(quick_method%printEnergy) call get_cshell_eri_energy
+   if(quick_method%printEnergy) call get_oshell_eri_energy
 
-!  Terminate the timer for 2e-integrals
    call cpu_time(timer_end%T2e)
 
-!  add the time to cumer
    timer_cumer%T2e=timer_cumer%T2e+timer_end%T2e-timer_begin%T2e
-#ifdef MPIV
-   endif
-#endif
 
 !-----------------------------------------------------------------
 !  Step 3. If DFT, evaluate the exchange/correlation contribution 
@@ -234,11 +133,11 @@ call MPI_BARRIER(MPI_COMM_WORLD,mpierror)
 #endif
 
 !  Calculate exchange correlation contribution & add to operator    
-      call get_xc
+      call getxc_oshell
 
 !  Remember the operator is symmetric
       call copySym(quick_qm_struct%o,nbasis)
-
+      call copySym(quick_qm_struct%ob,nbasis)
 #ifdef MPIV
    if(master) then
 #endif
@@ -255,11 +154,11 @@ call MPI_BARRIER(MPI_COMM_WORLD,mpierror)
    endif
 #endif
 
-return
+end subroutine uscf_operator
 
-end subroutine scf_operator
 
-subroutine get_xc
+
+subroutine getxc_oshell
 !----------------------------------------------------------------
 !  The purpose of this subroutine is to calculate the exchange
 !  correlation contribution to the Fock operator. 
@@ -291,27 +190,23 @@ subroutine get_xc
    include "mpif.h"
 #endif
 
-   !integer II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2, I, J
-   !common /hrrstore/II,JJ,KK,LL,NBI1,NBI2,NBJ1,NBJ2,NBK1,NBK2,NBL1,NBL2
-
-   double precision, dimension(1) :: libxc_rho
-   double precision, dimension(1) :: libxc_sigma
+   double precision, dimension(2) :: libxc_rho
+   double precision, dimension(3) :: libxc_sigma
    double precision, dimension(1) :: libxc_exc
-   double precision, dimension(1) :: libxc_vrhoa
-   double precision, dimension(1) :: libxc_vsigmaa
+   double precision, dimension(2) :: libxc_vrho
+   double precision, dimension(3) :: libxc_vsigma
+
    type(xc_f90_pointer_t), dimension(quick_method%nof_functionals) :: xc_func
-   type(xc_f90_pointer_t), dimension(quick_method%nof_functionals) :: xc_info   
+   type(xc_f90_pointer_t), dimension(quick_method%nof_functionals) :: xc_info
 #ifdef MPIV
    double precision, allocatable:: temp2d(:,:)
-!   integer, dimension(0:mpisize-1) :: itotgridspn
-!   integer, dimension(0:mpisize-1) :: igridptul
-!   integer, dimension(0:mpisize-1) :: igridptll
    integer :: ierror
+
    double precision :: Eelxc, Eelxcslave
    allocate(temp2d(nbasis,nbasis))
 
 !  Braodcast libxc information to slaves
-   call MPI_BCAST(quick_method%nof_functionals,1,mpi_integer,0,MPI_COMM_WORLD,mpierror)        
+   call MPI_BCAST(quick_method%nof_functionals,1,mpi_integer,0,MPI_COMM_WORLD,mpierror)
    call MPI_BCAST(quick_method%functional_id,size(quick_method%functional_id),mpi_integer,0,MPI_COMM_WORLD,mpierror)
    call MPI_BCAST(quick_method%xc_polarization,1,mpi_double_precision,0,MPI_COMM_WORLD,mpierror)
 #endif
@@ -334,22 +229,8 @@ subroutine get_xc
       call gpu_upload_calculated(quick_qm_struct%o,quick_qm_struct%co, &
             quick_qm_struct%vec,quick_qm_struct%dense)
 
-!      call gpu_getxc(quick_method%isg, sigrad2, Eelxc, &
-!            quick_qm_struct%aelec, quick_qm_struct%belec, &
-!            quick_qm_struct%o, quick_method%nof_functionals, &
-!            quick_method%functional_id,quick_method%xc_polarization)
-
-!      call gpu_upload_dft_grid(quick_dft_grid%gridxb, quick_dft_grid%gridyb, quick_dft_grid%gridzb, quick_dft_grid%gridb_sswt, &
-!      quick_dft_grid%gridb_weight, quick_dft_grid%gridb_atm, quick_dft_grid%dweight, quick_dft_grid%basf, quick_dft_grid%primf, &
-!      quick_dft_grid%basf_counter, quick_dft_grid%primf_counter, quick_dft_grid%gridb_count, quick_dft_grid%nbins,&
-!      quick_dft_grid%nbtotbf, quick_dft_grid%nbtotpf, quick_method%isg, sigrad2)
-
-      write(*,*) "LIBXC Nfuncs:",quick_method%nof_functionals,quick_method%functional_id(1)
-
       call gpu_getxc_new_imp(Eelxc, quick_qm_struct%aelec, quick_qm_struct%belec, quick_qm_struct%o, &
       quick_method%nof_functionals, quick_method%functional_id, quick_method%xc_polarization)
-
-!      call gpu_delete_dft_grid()
 
    endif
 #else
@@ -357,27 +238,11 @@ subroutine get_xc
    if(quick_method%uselibxc) then
 !  Initiate the libxc functionals
       do ifunc=1, quick_method%nof_functionals
-         call xc_f90_func_init(xc_func(ifunc), &
-              xc_info(ifunc),quick_method%functional_id(ifunc),XC_UNPOLARIZED)
+         call xc_f90_func_init(xc_func(ifunc), xc_info(ifunc), &
+              quick_method%functional_id(ifunc),XC_POLARIZED)
       enddo
    endif
 
-!  Form the quadrature
-!   do Iatm=1,natom
-!      if(quick_method%ISG.eq.1)then
-!         Iradtemp=50
-!      else
-!         if(quick_molspec%iattype(iatm).le.10)then
-!            Iradtemp=23
-!         else
-!            Iradtemp=26
-!         endif
-!      endif
-
-#ifdef MPIV
-!  Distribute grid points among master and slaves
-!   call setup_xc_mpi_new_imp(itotgridspn, igridptul, igridptll)
-#endif
 
 #ifdef MPIV
       if(bMPI) then
@@ -387,33 +252,13 @@ subroutine get_xc
          irad_init = 1
          irad_end = quick_dft_grid%nbins
       endif
-!      do Irad=irad_init, irad_end
+
    do Ibin=irad_init, irad_end
-   
+
 #else
-!      do Irad=1,Iradtemp
     do Ibin=1, quick_dft_grid%nbins
 #endif
-!         if(quick_method%ISG.eq.1)then
-!            call gridformnew(iatm,RGRID(Irad),iiangt)
-!            rad = radii(quick_molspec%iattype(iatm))
-!         else
-!            call gridformSG0(iatm,Iradtemp+1-Irad,iiangt,RGRID,RWT)
-!            rad = radii2(quick_molspec%iattype(iatm))
-!         endif
 
-!         rad3 = rad*rad*rad
-!         do Iang=1,iiangt
-!            gridx=xyz(1,Iatm)+rad*RGRID(Irad)*XANG(Iang)
-!            gridy=xyz(2,Iatm)+rad*RGRID(Irad)*YANG(Iang)
-!            gridz=xyz(3,Iatm)+rad*RGRID(Irad)*ZANG(Iang)
-
-!  Next, calculate the weight of the grid point in the SSW scheme.
-!  if the grid point has a zero weight, we can skip it.
-
-!            weight=SSW(gridx,gridy,gridz,Iatm)*WTANG(Iang)*RWT(Irad)*rad3
-
-!    do Ibin=1, quick_dft_grid%nbins
         Igp=quick_dft_grid%bin_counter(Ibin)+1
 
         do while(Igp < quick_dft_grid%bin_counter(Ibin+1)+1)
@@ -446,13 +291,13 @@ subroutine get_xc
 !  Next, evaluate the densities at the grid point and the gradient
 !  at that grid point.
 
-!               call denspt(gridx,gridy,gridz,density,densityb,gax,gay,gaz, &
-!               gbx,gby,gbz)
-
-               call denspt_cshell(gridx,gridy,gridz,density,densityb,gax,gay,gaz, &
+               call denspt_oshell(gridx,gridy,gridz,density,densityb,gax,gay,gaz, &
                gbx,gby,gbz,Ibin)
 
-               if (density < quick_method%DMCutoff ) then
+!                write(*,*) gridx,gridy,gridz,density,densityb,gax,gbx,gay,gby,gaz,gbz
+
+!               if ((density+densityb) < quick_method%DMCutoff) then
+               if ((density < quick_method%DMCutoff) .and. (densityb < quick_method%DMCutoff)) then
                   continue
                else
 
@@ -460,70 +305,115 @@ subroutine get_xc
 !  density (dfdr), with regard to the alpha-alpha density invariant (df/dgaa), and the
 !  alpha-beta density invariant.
 
-                  densitysum=2.0d0*density
-                  sigma=4.0d0*(gax*gax+gay*gay+gaz*gaz)
+                  gaa = (gax*gax+gay*gay+gaz*gaz)
+                  gbb = (gbx*gbx+gby*gby+gbz*gbz)
+                  gab = (gax*gbx+gay*gby+gaz*gbz)
 
-                  libxc_rho(1)=densitysum
-                  libxc_sigma(1)=sigma
+                  libxc_rho(1)=density
+                  libxc_rho(2)=densityb
 
-                  tsttmp_exc=0.0d0
-                  tsttmp_vrhoa=0.0d0
-                  tsttmp_vsigmaa=0.0d0
+                  libxc_sigma(1)=gaa
+                  libxc_sigma(2)=gab
+                  libxc_sigma(3)=gbb
+
+                  excpp=0.0d0
+                  dfdr=0.0d0
+                  dfdrb=0.0d0
+
+                  dfdgaa=0.0d0
+                  dfdgab=0.0d0
+                  dfdgbb=0.0d0
 
                   if(quick_method%uselibxc) then
                      do ifunc=1, quick_method%nof_functionals
                         select case(xc_f90_info_family(xc_info(ifunc)))
                            case(XC_FAMILY_LDA)
-                              call xc_f90_lda_exc_vxc(xc_func(ifunc),1,libxc_rho(1), &
-                              libxc_exc(1), libxc_vrhoa(1))
-                              libxc_vsigmaa(1) = 0.0d0
+!                              call xc_f90_lda_exc_vxc(xc_func(ifunc),1,libxc_rho(1), &
+!                              libxc_exc(1), libxc_vrhoa(1))
+
+                              libxc_vsigma(1) = 0.0d0
+                              libxc_vsigma(2) = 0.0d0
+                              libxc_vsigma(3) = 0.0d0
+
                            case(XC_FAMILY_GGA, XC_FAMILY_HYB_GGA)
-                              call xc_f90_gga_exc_vxc(xc_func(ifunc),1,libxc_rho(1), libxc_sigma(1), &
-                              libxc_exc(1), libxc_vrhoa(1), libxc_vsigmaa(1))
+                              call xc_f90_gga_exc_vxc(xc_func(ifunc),1,libxc_rho(1),libxc_sigma(1), &
+                              libxc_exc(1),libxc_vrho(1),libxc_vsigma(1))
                         end select
 
-                        tsttmp_exc=tsttmp_exc+libxc_exc(1)
-                        tsttmp_vrhoa=tsttmp_vrhoa+libxc_vrhoa(1)
-                        tsttmp_vsigmaa=tsttmp_vsigmaa+libxc_vsigmaa(1)
+                        excpp=excpp+libxc_exc(1)
+                        dfdr=dfdr+libxc_vrho(1)
+                        dfdrb=dfdrb+libxc_vrho(2)
+
+                        dfdgaa=dfdgaa+libxc_vsigma(1)
+                        dfdgab=dfdgab+libxc_vsigma(2)
+                        dfdgbb=dfdgbb+libxc_vsigma(3)
+
                      enddo
 
-                     zkec=densitysum*tsttmp_exc
-                     dfdr=tsttmp_vrhoa
-                     xiaodot=tsttmp_vsigmaa*4
+                     zkec=(density+densityb)*excpp
 
 !  Calculate the first term in the dot product shown above,
 !  i.e.: (2 df/dgaa Grad(rho a) + df/dgab Grad(rho b)) doT Grad(Phimu Phinu))
-                     xdot=xiaodot*gax
-                     ydot=xiaodot*gay
-                     zdot=xiaodot*gaz
-
-                  elseif(quick_method%BLYP) then
-
-                     call becke_E(density, densityb, gax, gay, gaz, gbx, gby,gbz, Ex)
-                     call lyp_e(density, densityb, gax, gay, gaz, gbx, gby, gbz,Ec)
-
-                     zkec=Ex+Ec
-                     
-                     call becke(density, gax, gay, gaz, gbx, gby, gbz, dfdr, dfdgaa, dfdgab)
-                     call lyp(density, densityb, gax, gay, gaz, gbx, gby, gbz, dfdr2, dfdgaa2, dfdgab2)
-
-                     dfdr = dfdr + dfdr2
-                     dfdgaa = dfdgaa + dfdgaa2
-                     dfdgab = dfdgab + dfdgab2
 
                      xdot = 2.d0*dfdgaa*gax + dfdgab*gbx
                      ydot = 2.d0*dfdgaa*gay + dfdgab*gby
                      zdot = 2.d0*dfdgaa*gaz + dfdgab*gbz
 
+                     xdotb = 2.d0*dfdgbb*gbx + dfdgab*gax
+                     ydotb = 2.d0*dfdgbb*gby + dfdgab*gay
+                     zdotb = 2.d0*dfdgbb*gbz + dfdgab*gaz
+
+                  elseif(quick_method%BLYP) then
+
+!                     call becke_E(density, densityb, gax, gay, gaz, gbx, gby,gbz, Ex)
+!                     call lyp_e(density, densityb, gax, gay, gaz, gbx, gby, gbz,Ec)
+
+!                     zkec=Ex+Ec
+
+!write(*,*) density, densityb, gax, gay, gaz, gbx, gby,gbz, Ex, Ec
+
+!                     call becke(density, gax, gay, gaz, gbx, gby, gbz, dfdr, dfdgaa, dfdgab)
+!                     call lyp(density, densityb, gax, gay, gaz, gbx, gby, gbz, dfdr2, dfdgaa2, dfdgab2)
+
+!                     call becke(densityb, gax, gay, gaz, gbx, gby, gbz, dfdrb,dfdgbb, dfdgabb)
+!                     call lyp(density, densityb, gax, gay, gaz, gbx, gby, gbz,dfdrb2, dfdgbb2, dfdgabb2)
+
+!                     dfdr = dfdr + dfdr2
+!                     dfdgaa = dfdgaa + dfdgaa2
+!                     dfdgab = dfdgab + dfdgab2
+
+!                     dfdrb = dfdrb + dfdrb2
+!                     dfdgbb = dfdgbb + dfdgbb2
+!                     dfdgabb = dfdgabb + dfdgabb2
+
+!                     xdot = 2.d0*dfdgaa*gax + dfdgab*gbx
+!                     ydot = 2.d0*dfdgaa*gay + dfdgab*gby
+!                     zdot = 2.d0*dfdgaa*gaz + dfdgab*gbz
+
+!                     xdotb = 2.d0*dfdgbb*gbx + dfdgabb*gax
+!                     ydotb = 2.d0*dfdgbb*gby + dfdgabb*gay
+!                     zdotb = 2.d0*dfdgbb*gbz + dfdgabb*gaz
+
                   elseif(quick_method%B3LYP) then
 
-                     call b3lyp_e(densitysum, sigma, zkec)
-                     call b3lypf(densitysum, sigma, dfdr, xiaodot)
-
-                     xdot=xiaodot*gax
-                     ydot=xiaodot*gay
-                     zdot=xiaodot*gaz
-
+!                     call b3lyp_e(density, sigma, zkec)
+!                     call b3lypf(density, sigma, dfdr, xiaodot)
+!
+!                     call b3lyp_e(densityb, sigmab, zkecb)
+!                     call b3lypf(densityb, sigmab, dfdrb, xiaodotb)
+!
+!write(*,*) density,densityb,sigma,sigmab,zkec,zkecb,dfdr,dfdrb,xiaodot,xiaodotb
+!
+!                     zkec=zkec+zkecb
+!
+!                     xdot=xiaodot*gax
+!                     ydot=xiaodot*gay
+!                     zdot=xiaodot*gaz
+!
+!                     xdotb=xiaodotb*gbx
+!                     ydotb=xiaodotb*gby
+!                     zdotb=xiaodotb*gbz
+!
                   endif
 
                   Eelxc = Eelxc + zkec*weight
@@ -549,7 +439,6 @@ subroutine get_xc
                         jcount=icount
                         do while(jcount<quick_dft_grid%basf_counter(Ibin+1)+1)
                         Jbas = quick_dft_grid%basf(jcount)+1
-                        !do Jbas=Ibas,nbasis
                            phi2=phixiao(Jbas)
                            dphi2dx=dphidxxiao(Jbas)
                            dphi2dy=dphidyxiao(Jbas)
@@ -558,8 +447,13 @@ subroutine get_xc
                            tempgx = phi*dphi2dx + phi2*dphidx
                            tempgy = phi*dphi2dy + phi2*dphidy
                            tempgz = phi*dphi2dz + phi2*dphidz
+
                            quick_qm_struct%o(Jbas,Ibas)=quick_qm_struct%o(Jbas,Ibas)+(temp*dfdr+&
                            xdot*tempgx+ydot*tempgy+zdot*tempgz)*weight
+
+                           quick_qm_struct%ob(Jbas,Ibas)=quick_qm_struct%ob(Jbas,Ibas)+(temp*dfdrb+&
+                           xdotb*tempgx+ydotb*tempgy+zdotb*tempgz)*weight                           
+
                            jcount=jcount+1
                         enddo
                      endif
@@ -567,7 +461,6 @@ subroutine get_xc
                   enddo
                endif
             endif
-         !enddo
 
          Igp=Igp+1
       enddo
@@ -622,10 +515,9 @@ subroutine get_xc
    endif
 #endif
 
-!   call exit
-  
+! call exit
+
    return
 
-end subroutine get_xc
-
+end subroutine getxc_oshell
 

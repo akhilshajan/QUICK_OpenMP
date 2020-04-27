@@ -60,24 +60,24 @@
         call cpu_time(t1)
         jscf=jscf+1
 
-        if (quick_method%debug) then
-            write(ioutfile,'(//,"ALPHA DENSITY MATRIX AT START OF", &
-            & " CYCLE",I4)') jscf
-            do I=1,nbasis
-                do J=1,nbasis
-                    write (ioutfile,'("DENSEA[",I4,",",I4,"]=",F18.10)') &
-                    J,I,quick_qm_struct%dense(J,I)
-                enddo
-            enddo
-            write(ioutfile,'(//,"BETA DENSITY MATRIX AT START OF", &
-            & " CYCLE",I4)') jscf
-            do I=1,nbasis
-                do J=1,nbasis
-                    write (ioutfile,'("DENSEB[",I4,",",I4,"]=",F18.10)') &
-                    J,I,quick_qm_struct%denseb(J,I)
-                enddo
-            enddo
-        endif
+        if (quick_method%debug) call debug_USCF(jscf)
+!            write(ioutfile,'(//,"ALPHA DENSITY MATRIX AT START OF", &
+!            & " CYCLE",I4)') jscf
+!            do I=1,nbasis
+!                do J=1,nbasis
+!                    write (ioutfile,'("DENSEA[",I4,",",I4,"]=",F18.10)') &
+!                    J,I,quick_qm_struct%dense(J,I)
+!                enddo
+!            enddo
+!            write(ioutfile,'(//,"BETA DENSITY MATRIX AT START OF", &
+!            & " CYCLE",I4)') jscf
+!            do I=1,nbasis
+!                do J=1,nbasis
+!                    write (ioutfile,'("DENSEB[",I4,",",I4,"]=",F18.10)') &
+!                    J,I,quick_qm_struct%denseb(J,I)
+!                enddo
+!            enddo
+!        endif
 
 
     ! 1)  Form alpha operator matrix.
@@ -88,16 +88,16 @@
 
        ! call shift(sval,.true.,jscf)
 
-        if (quick_method%debug) then
-            write(ioutfile,'(//,"ALPHA OPERATOR MATRIX AT START OF", &
-            & " CYCLE",I4)') jscf
-            do I=1,nbasis
-                do J=1,nbasis
-                    write (ioutfile,'("OPERATORA[",I4,",",I4,"]=",F18.10)') &
-                    J,I,quick_qm_struct%o(J,I)
-                enddo
-            enddo
-        endif
+!        if (quick_method%debug) then
+!            write(ioutfile,'(//,"ALPHA OPERATOR MATRIX AT START OF", &
+!            & " CYCLE",I4)') jscf
+!            do I=1,nbasis
+!                do J=1,nbasis
+!                    write (ioutfile,'("OPERATORA[",I4,",",I4,"]=",F18.10)') &
+!                    J,I,quick_qm_struct%o(J,I)
+!                enddo
+!            enddo
+!        endif
 
     ! 2)  Calculate O' = Transpose[X] O X.
     

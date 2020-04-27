@@ -45,8 +45,14 @@ module quick_calculated_module
       ! operator matrix, the dimension is nbasis*nbasis. For HF, it's Fock Matrix
       double precision,dimension(:,:), allocatable :: o
 
+      ! Beta operator matrix, the dimension is nbasis*nbasis. For HF, it's Fock Matrix
+      double precision,dimension(:,:), allocatable :: ob
+
       ! saved operator matrix
       double precision,dimension(:,:), allocatable :: oSave
+
+      ! saved beta operator matrix
+      double precision,dimension(:,:), allocatable :: obSave
 
       ! saved dft operator matrix
       double precision,dimension(:,:), allocatable :: oSaveDFT
@@ -75,9 +81,18 @@ module quick_calculated_module
       ! the dimension is nbasis*nbasis.
       double precision,dimension(:,:), allocatable :: denseSave
 
+      ! saved beta density matrix
+      ! the dimension is nbasis*nbasis.
+      double precision,dimension(:,:), allocatable :: densebSave
+
       ! saved density matrix
       ! the dimension is nbasis*nbasis.
       double precision,dimension(:,:), allocatable :: denseOld
+
+      ! saved beta density matrix
+      ! the dimension is nbasis*nbasis.
+      double precision,dimension(:,:), allocatable :: densebOld
+
       ! Initial density matrix
       ! the dimension is nbasis*nbasis.
       double precision,dimension(:,:), allocatable :: denseInt
@@ -198,11 +213,16 @@ contains
       allocate(self%x(nbasis,nbasis))
       allocate(self%o(nbasis,nbasis))
       allocate(self%oSave(nbasis,nbasis))
+      allocate(self%ob(nbasis,nbasis))
+      allocate(self%obSave(nbasis,nbasis))
       allocate(self%co(nbasis,nbasis))
       allocate(self%vec(nbasis,nbasis))
       allocate(self%dense(nbasis,nbasis))
       allocate(self%denseSave(nbasis,nbasis))
+      allocate(self%denseb(nbasis,nbasis))
+      allocate(self%densebSave(nbasis,nbasis))
       allocate(self%denseOld(nbasis,nbasis))
+      allocate(self%densebOld(nbasis,nbasis))
       allocate(self%denseInt(nbasis,nbasis))
       allocate(self%E(nbasis))
       allocate(self%iDegen(nbasis))
@@ -232,13 +252,14 @@ contains
 
       ! if unrestricted, some more varibles is required to be allocated
       if (quick_method%unrst) then
+         !allocate(self%ob(nbasis,nbasis))
          allocate(self%cob(nbasis,nbasis))
          allocate(self%Eb(nbasis))
       endif
 
-      if (quick_method%unrst .or. quick_method%DFT) then
-         allocate(self%denseb(nbasis,nbasis))
-      endif
+      !if (quick_method%unrst .or. quick_method%DFT) then
+      !   allocate(self%denseb(nbasis,nbasis))
+      !endif
 
       ! one more thing, DFT
       if (quick_method%DFT) then
@@ -322,11 +343,16 @@ contains
       if (allocated(self%x)) deallocate(self%x)
       if (allocated(self%o)) deallocate(self%o)
       if (allocated(self%oSave)) deallocate(self%oSave)
+      if (allocated(self%ob)) deallocate(self%ob)
+      if (allocated(self%obSave)) deallocate(self%obSave)
       if (allocated(self%co)) deallocate(self%co)
       if (allocated(self%vec)) deallocate(self%vec)
       if (allocated(self%dense)) deallocate(self%dense)
       if (allocated(self%denseSave)) deallocate(self%denseSave)
+      if (allocated(self%denseb)) deallocate(self%denseb)
+      if (allocated(self%densebSave)) deallocate(self%densebSave)
       if (allocated(self%denseOld)) deallocate(self%denseOld)
+      if (allocated(self%densebOld)) deallocate(self%densebOld)
       if (allocated(self%denseInt)) deallocate(self%denseInt)
       if (allocated(self%E)) deallocate(self%E)
       if (allocated(self%iDegen)) deallocate(self%iDegen)
@@ -351,13 +377,14 @@ contains
 
       ! if unrestricted, some more varibles is required to be allocated
       if (quick_method%unrst) then
+         !if (allocated(self%ob)) deallocate(self%ob)
          if (allocated(self%cob)) deallocate(self%cob)
          if (allocated(self%Eb)) deallocate(self%Eb)
       endif
 
-      if (quick_method%unrst .or. quick_method%DFT) then
-         if (allocated(self%denseb)) deallocate(self%denseb)
-      endif
+      !if (quick_method%unrst .or. quick_method%DFT) then
+      !   if (allocated(self%denseb)) deallocate(self%denseb)
+      !endif
 
       ! one more thing, DFT
       if (quick_method%DFT) then
@@ -473,11 +500,16 @@ contains
       call zeroMatrix(self%x,nbasis)
       call zeroMatrix(self%o,nbasis)
       call zeroMatrix(self%oSave,nbasis)
+      call zeroMatrix(self%ob,nbasis)
+      call zeroMatrix(self%obSave,nbasis)
       call zeroMatrix(self%co,nbasis)
       call zeroMatrix(self%vec,nbasis)
       call zeroMatrix(self%dense,nbasis)
       call zeroMatrix(self%denseSave,nbasis)
+      call zeroMatrix(self%denseb,nbasis)
+      call zeroMatrix(self%densebSave,nbasis)
       call zeroMatrix(self%denseOld,nbasis)
+      call zeroMatrix(self%densebOld,nbasis)
       call zeroMatrix(self%denseInt,nbasis)
       call zeroVec(self%E,nbasis)
       call zeroiVec(self%iDegen,nbasis)
@@ -506,8 +538,9 @@ contains
 
       ! if unrestricted, some more varibles is required to be allocated
       if (quick_method%unrst) then
+         !call zeroMatrix(self%ob,nbasis)
          call zeroMatrix(self%cob,nbasis)
-         call zeroMatrix(self%denseb,nbasis)
+         !call zeroMatrix(self%denseb,nbasis)
          call zeroVec(self%Eb,nbasis)
       endif
 

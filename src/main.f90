@@ -1,32 +1,32 @@
+!---------------------------------------------------------------------!
+!                               QUICK                                 !
+!                                                                     !
+! An open source, GPU enabled, linear scaling ab initio and density   !
+! functional theory program developed by Merz lab at Michigan State   !
+! University and Götz lab at the University of California, San Diego. !
+!                                                                     !
+! Contributors: Madu Manathunga, Yipu Miao, Dawei Mu, Xio He,         !
+!               Alessandro Genoni, Ken Ayers, Ed Brothers,            !
+!               Andreas Götz & Kenneth Merz                           !
+!                                                                     ! 
+!                Copyright (C) 2020-2021 Merz lab                     !
+!                Copyright (C) 2020-2021 Götz lab                     !
+!                                                                     !
+! This Source Code Form is subject to the terms of the Mozilla Public !
+! License, v. 2.0. If a copy of the MPL was not distributed with this !
+! file, You can obtain one at http://mozilla.org/MPL/2.0/.            !
+!_____________________________________________________________________!
+
 #   include "./config.h"
-! 
-!************************************************************************
-!                              QUICK                                   **
-!                                                                      **
-!                        Copyright (c) 2010                            **
-!                Regents of the University of Florida                  **
-!                       All Rights Reserved.                           **
-!                                                                      **
-!  This software provided pursuant to a license agreement containing   **
-!  restrictions on its disclosure, duplication, and use. This software **
-!  contains confidential and proprietary information, and may not be   **
-!  extracted or distributed, in whole or in part, for any purpose      **
-!  whatsoever, without the express written permission of the authors.  **
-!  This notice, and the associated author list, must be attached to    **
-!  all copies, or extracts, of this software. Any additional           **
-!  restrictions set forth in the license agreement also apply to this  **
-!  software.                                                           **
-!************************************************************************
-!
-!  Cite this work as:
-!  Miao,Y.: He, X.: Ayers,K; Brothers, E.: Merz,K. M. QUICK
-!  University of Florida, Gainesville, FL, 2010
-!************************************************************************
-!
+
     program quick
     
     use allMod
     use divPB_Private, only: initialize_DivPBVars
+    use quick_cutoff_module, only: schwarzoff
+    use quick_cshell_module, only: get_eri_precomputables
+    use quick_cshell_gradient_module, only: cshell_gradient
+    use quick_oshell_gradient_module, only: oshell_gradient 
 
     implicit none
 
@@ -163,7 +163,8 @@
 !        call getEnergy(failed)
 !      endif
 !   else
-        call g2eshell   ! pre-calculate 2 indices coeffecient to save time
+!        call g2eshell   ! pre-calculate 2 indices coeffecient to save time
+        call get_eri_precomputables ! pre-calculate 2 indices coeffecient to save time
         call schwarzoff ! pre-calculate schwarz cutoff criteria
     endif
 
@@ -187,7 +188,7 @@
 
     call cpu_time(timer_end%TIniGuess)
     if (.not.quick_method%opt .and. .not.quick_method%grad) then
-        call getEnergy(failed)
+        call getEnergy(failed, .false.)
     endif
 
     if (failed) call quick_exit(iOutFile,1)
@@ -201,7 +202,16 @@
     ! available. A improvement is in optimzenew, which is based on 
     ! internal coordinates, but is under coding.    
     if (quick_method%opt)  call optimize(failed)     ! Cartesian 
-    if (.not.quick_method%opt .and. quick_method%grad) call gradient(failed)                             
+!    if (.not.quick_method%opt .and. quick_method%grad) call gradient(failed)                             
+
+    if (.not.quick_method%opt .and. quick_method%grad) then
+        if (quick_method%UNRST) then
+            call oshell_gradient(failed)
+        else
+            call cshell_gradient(failed)
+        endif
+    endif
+
     if (failed) call quick_exit(iOutFile,1)          ! If geometry optimization fails
 
     ! Now at this point we have an energy and a geometry.  If this is

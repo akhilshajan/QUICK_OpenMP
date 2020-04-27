@@ -1683,6 +1683,8 @@ subroutine get1eEnergy()
    !------------------------------------------------
    use allmod
    implicit double precision(a-h,o-z)
+   double precision :: flag_uscf
+
    call cpu_time(timer_begin%tE)
 
    call copySym(quick_qm_struct%o,nbasis)
@@ -1692,6 +1694,29 @@ subroutine get1eEnergy()
    timer_cumer%TE=timer_cumer%TE+timer_end%TE-timer_begin%TE
 
 end subroutine get1eEnergy
+
+!------------------------------------------------
+! get1eEnergy
+!------------------------------------------------
+subroutine get1eEnergy_uscf(oneElecO)
+   !------------------------------------------------
+   ! This subroutine is to get 1e integral
+   !------------------------------------------------
+   use allmod
+   implicit double precision(a-h,o-z)
+   double precision :: oneElecO(nbasis,nbasis)
+
+   call cpu_time(timer_begin%tE)
+
+   !call copySym(quick_qm_struct%o,nbasis)
+   quick_qm_struct%Eel=0.d0
+   quick_qm_struct%Eel=quick_qm_struct%Eel+sum2mat(quick_qm_struct%dense,oneElecO,nbasis)+ &
+                       sum2mat(quick_qm_struct%denseb,oneElecO,nbasis)
+
+   call cpu_time(timer_end%tE)
+   timer_cumer%TE=timer_cumer%TE+timer_end%TE-timer_begin%TE
+
+end subroutine get1eEnergy_uscf
 
 
 !------------------------------------------------

@@ -9,7 +9,7 @@
 !   written by Ed Brothers. 08/15/02
 !   This subroutine calculates and ouptus the energy.
 !
-subroutine getEnergy(failed)
+subroutine getEnergy(failed, is_sad)
    use allMod
    implicit none
 
@@ -22,6 +22,10 @@ subroutine getEnergy(failed)
 #endif
 
    logical :: failed
+
+   ! SAD guess also calls this function. This differentiates between molecular
+   ! energy calculation and SAD guess.
+   logical :: is_sad
 
     !Form the exchange-correlation quadrature if DFT is requested
     if (quick_method%DFT) then
@@ -83,7 +87,11 @@ subroutine getEnergy(failed)
    ! unrestred system will call uscf. the logical variable failed indicated failed convergence.
    ! convergence criteria can be set in the job or default value.
    if (quick_method%UNRST) then
-      call uscf(failed)       ! unrestricted system
+      if(is_sad) then
+         call uscf(failed)               ! unrestricted system
+      else
+         call uscf_new_imp2(failed)       ! unrestricted system
+      endif
    else
       call scf(failed)        ! restricted system
    endif
@@ -96,15 +104,16 @@ subroutine getEnergy(failed)
       ! Blocked by Yipu Miao
       !
       !if(quick_method%PBSOL)then
-         if (quick_method%UNRST) then
-                   if (quick_method%HF) call UHFEnergy
+      !   if (quick_method%UNRST) then
+                
+            !       if (quick_method%HF .and. (.not. is_sad)) call UHFEnergy
             !       if (quick_method%DFT) call uDFTEnergy
             !        if (quick_method%SEDFT) call uSEDFTEnergy
-         else
+      !   else
             !        if (quick_method%HF) call HFEnergy
             !        if (quick_method%DFT) call DFTenergy
             !        if (quick_method%SEDFT) call SEDFTenergy
-         endif
+      !   endif
       !endif
 
       ! Now that we have a converged density matrix, it is time to
@@ -118,12 +127,14 @@ subroutine getEnergy(failed)
       quick_qm_struct%Etot = quick_qm_struct%Eel + quick_qm_struct%Ecore
 
       if (ioutfile.ne.0) then
-         write (ioutfile,'("ELECTRONIC ENERGY    =",F16.9)') quick_qm_struct%Eel
-         write (ioutfile,'("CORE_CORE REPULSION  =",F16.9)') quick_qm_struct%Ecore
-         if (quick_method%extcharges) then
-            write (ioutfile,'("EXT CHARGE REPULSION =",F16.9)') quick_qm_struct%ECharge
+         if(.not. is_sad) then
+            write (ioutfile,'("ELECTRONIC ENERGY    =",F16.9)') quick_qm_struct%Eel
+            write (ioutfile,'("CORE_CORE REPULSION  =",F16.9)') quick_qm_struct%Ecore
+            if (quick_method%extcharges) then
+               write (ioutfile,'("EXT CHARGE REPULSION =",F16.9)') quick_qm_struct%ECharge
+            endif
+            write (ioutfile,'("TOTAL ENERGY         =",F16.9)') quick_qm_struct%Etot
          endif
-         write (ioutfile,'("TOTAL ENERGY         =",F16.9)') quick_qm_struct%Etot
          call prtact(ioutfile,"End Energy calculation")
          call flush(ioutfile)
       endif

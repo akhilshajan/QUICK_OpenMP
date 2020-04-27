@@ -6,6 +6,9 @@
 
 subroutine optimize(failed)
    use allmod
+   use quick_cutoff_module, only: schwarzoff
+   use quick_cshell_module, only: get_eri_precomputables
+
    implicit double precision(a-h,o-z)
 
    logical :: done,diagco,failed
@@ -128,7 +131,7 @@ subroutine optimize(failed)
 #endif
 
       ! calculate energy first
-      call g2eshell
+      call get_eri_precomputables
       call schwarzoff
 
 #ifdef CUDA
@@ -147,7 +150,7 @@ subroutine optimize(failed)
 
 #endif
 
-      call getEnergy(failed)
+      call getEnergy(failed, .false.)
 
       !   This line is for test only
       !   quick_method%bCUDA = .false.

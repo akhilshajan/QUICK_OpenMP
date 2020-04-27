@@ -5,9 +5,9 @@
 ! --Yipu Miao 10/09/2010
 !********************************************************
 ! Subroutine List:
-! debug_SCF()                    : SCF debug
+! debug_SCF()                   : SCF debug
 ! debugElecdii()                : Elecdii debug
-!
+! debug_USCF()                  : USCF debug
 
 !*******************************************************
 ! debug_SCF()
@@ -143,4 +143,41 @@ subroutine debugInitialGuess
     use allmod
          write(iOutFile,*) "DENSITY MATRIX AFTER INITIAL GUESS"
          call PriSym(iOutFile,nbasis,dense,'f14.8')
+end subroutine
+
+!*******************************************************
+! debug_USCF()
+!-------------------------------------------------------
+! this subroutine is to output some infos in debug mode
+!
+subroutine debug_USCF()
+   use allmod
+   implicit double precision(a-h,o-z)
+
+   write(ioutfile,'(//,"ALPHA DENSITY MATRIX AT START OF", &
+   & " CYCLE",I4)') jscf
+   do I=1,nbasis
+       do J=1,nbasis
+           write (ioutfile,'("DENSEA[",I4,",",I4,"]=",F18.10)') &
+           J,I,quick_qm_struct%dense(J,I)
+       enddo
+   enddo
+
+   write(ioutfile,'(//,"BETA DENSITY MATRIX AT START OF", &
+   & " CYCLE",I4)') jscf
+   do I=1,nbasis
+       do J=1,nbasis
+           write (ioutfile,'("DENSEB[",I4,",",I4,"]=",F18.10)') &
+           J,I,quick_qm_struct%denseb(J,I)
+       enddo
+   enddo   
+
+   write(ioutfile,'(//,"ALPHA OPERATOR MATRIX AT START OF", &
+   & " CYCLE",I4)') jscf
+   do I=1,nbasis
+       do J=1,nbasis
+           write (ioutfile,'("OPERATORA[",I4,",",I4,"]=",F18.10)') &
+           J,I,quick_qm_struct%o(J,I)
+       enddo
+   enddo
 end subroutine

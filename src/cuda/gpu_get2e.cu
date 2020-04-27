@@ -249,6 +249,212 @@ static __constant__ int Sumindex[10]={0,0,1,4,10,20,35,56,84,120};
 #undef int_spdf10
 
 
+//Include the kernels for open shell eri calculations
+#define OSHELL
+#define int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#undef new_quick_2_gpu_get2e_subs_h
+#include "gpu_get2e_subs.h"
+//#include "gpu_get2e_subs_grad.h"
+
+//===================================
+
+/*#undef int_spd
+#define int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs_grad.h"
+
+#undef int_spd
+#undef int_spdf
+#define int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs_grad.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#define int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs_grad.h"
+*/
+
+#ifdef CUDA_SPDF
+//===================================
+
+#undef int_spd
+#define int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#define int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#define int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#define int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#define int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#define int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#define int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#define int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#define int_spdf9
+#undef int_spdf10
+#include "gpu_get2e_subs.h"
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#define int_spdf10
+#include "gpu_get2e_subs.h"
+#endif
+
+#undef int_spd
+#undef int_spdf
+#undef int_spdf2
+#undef int_spdf3
+#undef int_spdf4
+#undef int_spdf5
+#undef int_spdf6
+#undef int_spdf7
+#undef int_spdf8
+#undef int_spdf9
+#undef int_spdf10
+
+#undef OSHELL
 
 /*
  upload gpu simulation type to constant memory
@@ -326,6 +532,45 @@ void get2e(_gpu_type gpu)
         QUICK_SAFE_CALL((get2e_kernel_spdf10<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
     }
 #endif 
+
+//    cudaDeviceSynchronize();
+//    nvtxRangePop();
+
+}
+
+
+// interface to call Kernel subroutine for uscf
+void get_oshell_eri(_gpu_type gpu)
+{
+    // Part spd
+//    nvtxRangePushA("SCF 2e");
+
+    QUICK_SAFE_CALL((get_oshell_eri_kernel<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+
+#ifdef CUDA_SPDF
+    if (gpu->maxL >= 3) {
+        // Part f-1
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-2
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf2<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-3
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf3<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-4
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf4<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-5
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf5<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-6
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf6<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-7
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf7<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-8
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf8<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-9
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf9<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+        // Part f-10
+        QUICK_SAFE_CALL((get_oshell_eri_kernel_spdf10<<<gpu->blocks, gpu->twoEThreadsPerBlock>>>()));
+    }
+#endif
 
 //    cudaDeviceSynchronize();
 //    nvtxRangePop();

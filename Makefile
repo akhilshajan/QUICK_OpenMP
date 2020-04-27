@@ -153,21 +153,23 @@ modobj= $(objfolder)/quick_mpi_module.o $(objfolder)/quick_constants_module.o $(
         $(objfolder)/quick_divcon_module.o $(objfolder)/quick_ecp_module.o $(objfolder)/quick_electrondensity_module.o \
         $(objfolder)/quick_files_module.o $(objfolder)/quick_gridpoints_module.o $(objfolder)/quick_mfcc_module.o \
         $(objfolder)/quick_params_module.o $(objfolder)/quick_pb_module.o $(objfolder)/quick_scratch_module.o \
-        $(objfolder)/quick_timer_module.o $(objfolder)/quick_all_module.o
+        $(objfolder)/quick_timer_module.o $(objfolder)/quick_all_module.o $(objfolder)/quick_cshell_eri_module.o \
+	$(objfolder)/quick_oshell_eri_module.o $(objfolder)/quick_cutoff_module.o $(objfolder)/quick_cshell_eri_grad_module.o \
+	$(objfolder)/quick_oshell_eri_grad_module.o $(objfolder)/quick_cshell_gradient_module.o $(objfolder)/quick_oshell_gradient_module.o
 
 OBJ =   $(objfolder)/main.o \
         $(objfolder)/initialize.o $(objfolder)/read_job_and_atom.o $(objfolder)/fmm.o \
-        $(objfolder)/getMolSad.o $(objfolder)/getMol.o $(objfolder)/shell.o $(objfolder)/schwarz.o \
+        $(objfolder)/getMolSad.o $(objfolder)/getMol.o $(objfolder)/shell.o \
         $(objfolder)/quick_one_electron_integral.o $(objfolder)/getEnergy.o $(objfolder)/inidivcon.o \
         $(objfolder)/ecp.o $(objfolder)/hfoperator.o $(objfolder)/nuclear.o \
-        $(objfolder)/dft.o $(objfolder)/sedftoperator.o $(objfolder)/dipole.o \
+        $(objfolder)/dft.o $(objfolder)/dipole.o \
         $(objfolder)/scf.o $(objfolder)/uscf.o $(objfolder)/finalize.o $(objfolder)/uhfoperator.o \
         $(objfolder)/udftoperator.o $(objfolder)/usedftoperator.o \
         $(objfolder)/uelectdii.o $(objfolder)/mpi_setup.o $(objfolder)/quick_debug.o \
         $(objfolder)/calMP2.o $(objfolder)/optimize.o $(objfolder)/gradient.o $(objfolder)/hessian.o \
         $(objfolder)/CPHF.o $(objfolder)/frequency.o $(objfolder)/MFCC.o $(objfolder)/basis.o \
-        $(objfolder)/fake_amber_interface.o $(objfolder)/scf_operator.o $(objfolder)/uhfenergy.o 
-
+        $(objfolder)/fake_amber_interface.o $(objfolder)/scf_operator.o \
+	$(objfolder)/uscf_new_imp.o $(objfolder)/uscf_operator.o 
 
 all: quick quick.cuda
 #************************************************************************

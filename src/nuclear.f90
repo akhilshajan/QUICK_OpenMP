@@ -2284,8 +2284,12 @@ subroutine nuclearattraopt(Ips,Jps,IIsh,JJsh,NIJ1, &
             Xconstant1=Xconstant*quick_basis%cons(III)
             itemp1=trans(quick_basis%KLMN(1,III),quick_basis%KLMN(2,III),quick_basis%KLMN(3,III))
             do JJJ=max(III,JJJ1),JJJ2
-               DENSEJI=quick_qm_struct%dense(JJJ,III)
 
+if (quick_method%UNRST) then
+               DENSEJI=quick_qm_struct%dense(JJJ,III)+quick_qm_struct%denseb(JJJ,III)
+else
+               DENSEJI=quick_qm_struct%dense(JJJ,III)
+endif
                if(III.ne.JJJ)DENSEJI=2.0d0*DENSEJI
                Xconstant2=Xconstant1*quick_basis%cons(JJJ)*DENSEJI
                itemp2=trans(quick_basis%KLMN(1,JJJ),quick_basis%KLMN(2,JJJ),quick_basis%KLMN(3,JJJ))

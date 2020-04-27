@@ -6,6 +6,7 @@
 subroutine calmp2
   use allmod
   use quick_gaussian_class_module
+  use quick_cutoff_module
   implicit double precision(a-h,o-z)
 
   double precision cutoffTest,testtmp,testCutoff
@@ -56,7 +57,7 @@ subroutine calmp2
   write(ioutfile,'("TOTAL STEP          =",I6)') nstepmp2
 
   ! Pre-step for density cutoff
-  call densityCutoff    
+  call cshell_density_cutoff    
 
   ! first save coeffecient.
   do i=1,nbasis
@@ -256,6 +257,7 @@ end subroutine calmp2
 subroutine MPI_calmp2
   use allmod
   use quick_gaussian_class_module
+  use quick_cutoff_module
   implicit double precision(a-h,o-z)
 
   include "mpif.h"
@@ -314,7 +316,7 @@ subroutine MPI_calmp2
   endif
   write(ioutfile,'("TOTAL STEP          =",I6)') nstepmp2
   ! Pre-step for density cutoff
-  call densityCutoff    
+  call cshell_density_cutoff    
 
   ! first save coeffecient.
   do i=1,nbasis

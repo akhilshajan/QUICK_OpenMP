@@ -60,6 +60,7 @@ extern "C" void gpu_grad_(QUICKDouble* grad);
 // kernel interface [get2e]
 void get2e(_gpu_type gpu);
 void getAOInt(_gpu_type gpu, QUICKULL intStart, QUICKULL intEnd, cudaStream_t streamI, int streamID,  ERI_entry* aoint_buffer);
+void get_oshell_eri(_gpu_type gpu);
 //void getxc(_gpu_type gpu, gpu_libxc_info** glinfo, int nof_functionals, int xc_calc_type, double* exc_dev_grad); //Madu Manathunga 07/01/2019: added libxc variable
 void get_ssw_new_imp(_gpu_type gpu);
 //void get_primf_contraf_lists(_gpu_type gpu);
@@ -84,6 +85,17 @@ __global__ void get2e_kernel_spdf8();
 __global__ void get2e_kernel_spdf9();
 __global__ void get2e_kernel_spdf10();
 
+__global__ void get_oshell_eri_kernel();
+__global__ void get_oshell_eri_kernel_spdf();
+__global__ void get_oshell_eri_kernel_spdf2();
+__global__ void get_oshell_eri_kernel_spdf3();
+__global__ void get_oshell_eri_kernel_spdf4();
+__global__ void get_oshell_eri_kernel_spdf5();
+__global__ void get_oshell_eri_kernel_spdf6();
+__global__ void get_oshell_eri_kernel_spdf7();
+__global__ void get_oshell_eri_kernel_spdf8();
+__global__ void get_oshell_eri_kernel_spdf9();
+__global__ void get_oshell_eri_kernel_spdf10();
 
 __global__ void getAOInt_kernel(QUICKULL intStart, QUICKULL intEnd, ERI_entry* aoint_buffer, int streamID);
 __global__ void getAOInt_kernel_spdf(QUICKULL intStart, QUICKULL intEnd, ERI_entry* aoint_buffer, int streamID);
@@ -146,6 +158,18 @@ __device__ void iclass_spdf8(int I, int J, int K, int L, unsigned int II, unsign
 __device__ void iclass_spdf9(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
 __device__ void iclass_spdf10(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
 
+__device__ void iclass_oshell(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf2(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf3(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf4(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf5(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf6(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf7(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf8(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf9(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+__device__ void iclass_oshell_spdf10(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax);
+
 __device__ __forceinline__ void iclass_AOInt(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax, ERI_entry* aoint_buffer, int streamID);
 __device__ __forceinline__ void iclass_AOInt_spdf(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax, ERI_entry* aoint_buffer, int streamID);
 __device__ __forceinline__ void iclass_AOInt_spdf2(int I, int J, int K, int L, unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL, QUICKDouble DNMax, ERI_entry* aoint_buffer, int streamID);
@@ -179,6 +203,7 @@ char *trim(char *s);
 
 //__device__ void gpu_shell(unsigned int II, unsigned int JJ, unsigned int KK, unsigned int LL);
 __device__ void addint(QUICKULL* oULL, QUICKDouble Y, int III, int JJJ, int KKK, int LLL,QUICKDouble hybrid_coeff,  QUICKDouble* dense, int nbasis);
+__device__ void addint_oshell(QUICKULL* oULL, QUICKULL* obULL,QUICKDouble Y, int III, int JJJ, int KKK, int LLL,QUICKDouble hybrid_coeff,  QUICKDouble* dense, QUICKDouble* denseb,int nbasis);
 __device__ void FmT(int MaxM, QUICKDouble X, QUICKDouble* vals);
 
 __device__ QUICKDouble hrrwhole(int I, int J, int K, int L, \

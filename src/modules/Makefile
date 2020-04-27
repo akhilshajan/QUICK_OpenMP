@@ -44,14 +44,21 @@ endif
 modfolder = ./modules
 objfolder = ../../obj
 
-PPRCFILES = quick_basis_module.f90 quick_method_module.f90 quick_molspec_module.f90 quick_calculated_module.f90 quick_timer_module.f90
+PPRCFILES = quick_basis_module.f90 quick_method_module.f90 quick_molspec_module.f90 quick_calculated_module.f90 quick_timer_module.f90 \
+	quick_cshell_eri_module.f90 quick_oshell_eri_module.f90 quick_cshell_eri_grad_module.f90 quick_oshell_eri_grad_module.f90 \
+	quick_cshell_gradient_module.f90 quick_oshell_gradient_module.f90
+
 modobj=$(objfolder)/quick_mpi_module.o $(objfolder)/quick_constants_module.o $(objfolder)/quick_method_module.o \
 		$(objfolder)/quick_molspec_module.o $(objfolder)/quick_gaussian_class_module.o $(objfolder)/quick_size_module.o \
 		$(objfolder)/quick_amber_interface_module.o $(objfolder)/quick_basis_module.o $(objfolder)/quick_calculated_module.o \
 		$(objfolder)/quick_divcon_module.o $(objfolder)/quick_ecp_module.o $(objfolder)/quick_electrondensity_module.o \
 		$(objfolder)/quick_files_module.o $(objfolder)/quick_timer_module.o $(objfolder)/quick_gridpoints_module.o \
 		$(objfolder)/quick_mfcc_module.o $(objfolder)/quick_params_module.o $(objfolder)/quick_pb_module.o \
-		$(objfolder)/quick_scratch_module.o $(objfolder)/quick_all_module.o
+		$(objfolder)/quick_scratch_module.o $(objfolder)/quick_all_module.o $(objfolder)/quick_cshell_eri_module.o \
+		$(objfolder)/quick_oshell_eri_module.o $(objfolder)/quick_cutoff_module.o $(objfolder)/quick_cshell_eri_grad_module.o \
+		$(objfolder)/quick_oshell_eri_grad_module.o $(objfolder)/quick_cshell_gradient_module.o \
+		$(objfolder)/quick_oshell_gradient_module.o			
+
 #----------------------
 # Preprocess .f90 soruce files
 # #----------------------
@@ -70,6 +77,24 @@ quick_calculated_module.f90: quick_calculated_module_.f90
 
 quick_timer_module.f90: quick_timer_module_.f90
 	$(FPP) quick_timer_module_.f90 > quick_timer_module.f90
+
+quick_cshell_eri_module.f90: quick_eri_module.f90
+	$(FPP) quick_eri_module.f90 > quick_cshell_eri_module.f90
+
+quick_oshell_eri_module.f90: quick_eri_module.f90
+	$(FPP) -DOSHELL quick_eri_module.f90 > quick_oshell_eri_module.f90
+
+quick_cshell_eri_grad_module.f90: quick_eri_grad_module.f90
+	$(FPP) quick_eri_grad_module.f90 > quick_cshell_eri_grad_module.f90
+
+quick_oshell_eri_grad_module.f90: quick_eri_grad_module.f90
+	$(FPP) -DOSHELL quick_eri_grad_module.f90 > quick_oshell_eri_grad_module.f90
+
+quick_cshell_gradient_module.f90: quick_gradient_module.f90
+	$(FPP) quick_gradient_module.f90 > quick_cshell_gradient_module.f90
+
+quick_oshell_gradient_module.f90: quick_gradient_module.f90
+	$(FPP) -DOSHELL quick_gradient_module.f90 > quick_oshell_gradient_module.f90
 
 #----------------------
 # Create object and mod files

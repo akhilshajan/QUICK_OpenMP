@@ -187,9 +187,9 @@ subroutine qm2_quick_energy(escf,scf_mchg)
     
     quick_first_call=.false.
     
-    call g2eshell
+    call get_eri_precomputables
     call schwarzoff
-    call getEnergy(failed)
+    call getEnergy(failed, .false.)
     
     ! Output Energy information
     
