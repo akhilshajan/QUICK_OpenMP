@@ -38,8 +38,10 @@ LD = $(FC)
 #LAPACK = -lopenblas
 #LDFLAGS = $(FFLAGS) -lstdc++ $(LAPACK)
 
-#INTELHOME = /opt/software/icc/2015.1.133-GCC-4.9.2
-INTELHOME = /opt/software/iccifort/2019.5.281
+INTELHOME = /opt/software/icc/2015.1.133-GCC-4.9.2
+#INTELHOME = /opt/software/iccifort/2019.5.281
+#INTELHOME = /opt/software/iccifort/2019.5.281/compilers_and_libraries_2019.5.281/linux
+
 LIBS = -L$(INTELHOME)/lib/intel64 -L$(INTELHOME)/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 LDFLAGS = $(FFLAGS) -lstdc++ $(LIBS)
 
