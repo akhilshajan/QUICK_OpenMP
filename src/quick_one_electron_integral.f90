@@ -54,8 +54,8 @@ subroutine fullx
    call copyDMat(quick_qm_struct%s,quick_scratch%hold,nbasis)
 
    ! Now diagonalize HOLD to generate the eigenvectors and eigenvalues.
+   call DIAG(NBASIS,quick_scratch%hold,Sminhalf,quick_scratch%hold2,IERROR)
 
-   call DIAG(NBASIS,quick_scratch%hold,NBASIS,quick_method%DMCutoff,V,Sminhalf,IDEGEN1,quick_scratch%hold2,IERROR)
    ! Consider the following:
 
    ! X = U * s^(-.5) * transpose(U)

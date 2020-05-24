@@ -227,7 +227,7 @@ subroutine electdiis(jscf)
       if (quick_method%SEDFT) then
          call sedftoperator ! Semi-emperical DFT Operator
       else
-         call scf_operator(oneElecO, deltaO)
+         call scf_operator(oneElecO, deltaO)    !step2 to 6
       endif
 
       if (quick_method%debug)  write(ioutfile,*) "after calling scf"
@@ -496,7 +496,7 @@ subroutine electdiis(jscf)
          !-----------------------------------------------
          ! 8) Diagonalize the operator matrix to form a new density matrix.
          ! First you have to transpose this into an orthogonal basis, which
-         ! is accomplished by calculating Transpose[X] . O . X.
+         ! is accomplished by calculating Transpose[X] . O . X. (p146, step7, 8)
          !-----------------------------------------------
 #ifdef CUDA
          call cublas_DGEMM ('n', 'n', nbasis, nbasis, nbasis, 1.0d0, quick_qm_struct%o, &
@@ -516,12 +516,13 @@ subroutine electdiis(jscf)
 
          ! Now diagonalize the operator matrix.
          call cpu_time(timer_begin%TDiag)
-         call DIAG(nbasis,quick_qm_struct%o,nbasis,quick_method%DMCutoff,V2,quick_qm_struct%E,&
-               quick_qm_struct%idegen,quick_qm_struct%vec,IERROR)
+         
+         call DIAG(nbasis,quick_qm_struct%o,quick_qm_struct%E,quick_qm_struct%vec,IERROR)
+
          call cpu_time(timer_end%TDiag)
 
 
-         ! Calculate C = XC' and form a new density matrix.
+         ! Calculate C = XC' and form a new density matrix.(p146,step9, 10)
          ! The C' is from the above diagonalization.  Also, save the previous
          ! Density matrix to check for convergence.
          !        call DMatMul(nbasis,X,VEC,CO)    ! C=XC'
@@ -915,8 +916,8 @@ subroutine electdiisdc(jscf,PRMS)
          !--------------------------------------------
          call cpu_time(timer_begin%TDiag) ! Trigger the dc timer for subsytem
 
-         call DIAG(NtempN,Odcsubtemp,NtempN,quick_method%DMCutoff,Vtemp,EVAL1temp,IDEGEN1temp,VECtemp,IERROR)
-
+         call DIAG(NtempN,Odcsubtemp,EVAL1temp,VECtemp,IERROR)
+    
          call cpu_time(timer_end%TDiag)  ! Stop the timer
 
          Ttmp=timer_end%TDiag-timer_begin%TDiag
