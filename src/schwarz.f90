@@ -18,23 +18,45 @@ subroutine schwarzoff
    include 'mpif.h'
 #endif
 
-  integer ii,jj
+  integer i,ii,jj
   double precision Ymaxtemp
 
-  if (master) then
+
+
+!  do II=1,nshell
+!     do JJ=II,nshell
+
+!     write(*,*) mpirank,II,JJ,Ycutoff(II,JJ)
+!     write(*,*) mpirank,II,JJ,cutprim(II,JJ)
+!     enddo
+!  enddo
+
+
+!  if (master) then
+!write(*,*) mpirank, nshell, jshell
+
+#ifdef MPIV
+  do I=1,mpi_jshelln(mpirank)
+     II=mpi_jshell(mpirank,I)
+!     write(*,*) mpirank, mpi_jshelln(mpirank), II      
+  enddo
+#endif
+!#else
   do II=1,nshell
+!#endif
      do JJ=II,nshell
         call shellcutoff(II,JJ,Ymaxtemp)
         Ycutoff(II,JJ)=dsqrt(Ymaxtemp)  ! Ycutoff(II,JJ) stands for (IJ|IJ)
         Ycutoff(JJ,II)=dsqrt(Ymaxtemp)
      enddo
   enddo
-  endif
+!  endif
 
 #ifdef MPIV
       if (bMPI) then
-         call MPI_BCAST(YCutoff,nshell*nshell,mpi_double_precision,0,MPI_COMM_WORLD,mpierror)
-         call MPI_BCAST(cutprim,jbasis*jbasis,mpi_double_precision,0,MPI_COMM_WORLD,mpierror)
+
+!         call MPI_BCAST(YCutoff,nshell*nshell,mpi_double_precision,0,MPI_COMM_WORLD,mpierror)
+!         call MPI_BCAST(cutprim,jbasis*jbasis,mpi_double_precision,0,MPI_COMM_WORLD,mpierror)
          call MPI_BARRIER(MPI_COMM_WORLD,mpierror)
       endif
 #endif
@@ -586,6 +608,7 @@ subroutine densityCutoff
    !------------------------------------------------
    use allmod
    implicit double precision(a-h,o-z)
+
    ! Cutmatrix(II,JJ) indicated for ii shell and jj shell, the max dense
    do II=1,jshell
       do JJ=II,jshell
@@ -595,5 +618,4 @@ subroutine densityCutoff
          Cutmatrix(JJ,II)=DNtemp
       enddo
    enddo
-
 end subroutine densityCutoff

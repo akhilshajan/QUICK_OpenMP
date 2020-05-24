@@ -56,7 +56,7 @@ subroutine getMol()
    !-----------END MPI/ALL NODES--------------------
 #endif
 
-#ifdef CUDA
+#if defined CUDA || defined CUDA_MPIV 
    quick_method%bCUDA = .true.
 #endif
 

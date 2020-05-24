@@ -74,6 +74,8 @@ module quick_files_module
         ! Read enviromental variables: QUICK_BASIS and ECPs
         ! those can be defined in ~/.bashrc
         call getenv("QUICK_BASIS",basisdir)
+        basisdir=trim(basisdir)
+        write(*,*) basisdir
         call getenv("ECPs",ecpdir)
       
         ! Read argument, which is input file, usually ".in" file and prepare files:
@@ -111,35 +113,42 @@ module quick_files_module
         character(len=16) :: tmp_basisfilename
 
         ! local variables
-        integer i,j,k1,k2,k3,k4,iofile,io,flen,f0,f1
+        integer i,j,k1,k2,k3,k4,iofile,io,flen,f0,f1,lenkwd
         logical present
         
-        i = 0
+        i = 1
         j = 100 
         iofile = 0
         io = 0
         tmp_basisfilename = "NULL"
 
-        ! read basis directory and ECP basis directory
-        call rdword(basisdir,i,j)
-        call EffChar(basisdir,i,j,k1,k2)
+
+!        call EffChar(basisdir,i,j,k1,k2)
         
-        call rdword(ecpdir,i,j) !AG 03/05/2007
-        call EffChar(ecpdir,i,j,k3,k4)
+        call rdword(ecpdir,k3,k4) !AG 03/05/2007
+!        call EffChar(ecpdir,i,j,k3,k4)
               
         ! Gaussian Style Basis. Written by Alessandro GENONI 03/07/2007
         if (index(keywd,'BASIS=') /= 0) then
-            i = index(keywd,'BASIS=')
-            call rdword(keywd,i,j)
+
+            !Get the length of keywd
+            lenkwd=len_trim(keywd)
+
+            i = index(keywd,'BASIS=',.false.)
+
+            j = scan(keywd(i:lenkwd),' ',.false.)
            
-            write(basis_sets,*)  basisdir(k1+1:k2),"/basis_link"
-            write(search_keywd,*) "#",keywd(i+6:j)
-            basisSetName = keywd(i+6:j)
+            !write(basis_sets,*)  trim(basisdir),"/basis_link"
+            basis_sets=trim(basisdir) // "/basis_link"
+
+            basisSetName = keywd(i+6:i+j-2)
+            search_keywd= "#" // trim(basisSetName)
 
             ! Check if the basis_link file exists
-            flen=len(basis_sets)
-            call EffChar(basis_sets,1,flen,f0,f1)
-            inquire(file=basis_sets(f0:f1),exist=fexist)
+            !flen=len(basis_sets)
+            !call EffChar(basis_sets,1,flen,f0,f1)
+
+            inquire(file=trim(basis_sets),exist=fexist)
             if (.not.fexist) then
                 call PrtErr(iOutFile,'basis_link file is not accessible.')                
                 call PrtMsg(iOutFile,'Check if QUICK_BASIS environment variable is set.')
@@ -160,13 +169,11 @@ module quick_files_module
 
             close(ibasisfile)
 
-            write(basisfilename,*) basisdir(k1+1:k2),"/",tmp_basisfilename
+            basisfilename=trim(basisdir) // "/" // tmp_basisfilename
 
             ! Check if basis file exists. Otherwise, quit program.
-            flen=len(basisfilename)
-            call EffChar(basisfilename,1,flen,f0,f1)
-            inquire(file=basisfilename(f0:f1),exist=fexist)
-            write(*,*) basisfilename(f0:f1)
+            inquire(file=trim(basisfilename),exist=fexist)
+            write(*,*) trim(basisfilename)
             if (.not.fexist) then
                 call PrtErr(iOutFile,'Requested basis set does not exist or basis_link file not properly configured.')
                 call PrtMsg(iOutFile,'Fix the basis_link file or add your basis set as a new entry. Check the user manual.')
@@ -174,15 +181,15 @@ module quick_files_module
             end if
 
         else
-            basisfilename = basisdir(k1:k2) // '/STO-3G.BAS'    ! default
+            basisfilename = trim(basisdir) // '/STO-3G.BAS'    ! default
         endif
         
         if (index(keywd,'ECP=') /= 0) then
             i = index(keywd,'ECP=')
             call rdword(keywd,i,j)
             ecpfilename = ecpdir(k3:k4) // '/' // keywd(i+4:j)
-            basisfilename = basisdir(k1:k2) // '/' //keywd(i+4:j)
-            if (keywd(i+4:j) == "CUSTOM") BasisCustName = basisdir(k1:k2)// '/CUSTOM'
+            basisfilename = trim(basisdir) // '/' //keywd(i+4:j)
+            if (keywd(i+4:j) == "CUSTOM") BasisCustName = trim(basisdir) // '/CUSTOM'
         endif
         
         ! a compatible mode for basis set file if files like STO-3G.BAS didn't exist, 

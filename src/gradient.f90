@@ -57,39 +57,51 @@ subroutine gradient(failed)
       enddo
    enddo
 
-#ifdef CUDA
-   call gpu_setup(natom,nbasis, quick_molspec%nElec, quick_molspec%imult, &
-        quick_molspec%molchg, quick_molspec%iAtomType)
-   call gpu_upload_xyz(xyz)
-   call gpu_upload_atom_and_chg(quick_molspec%iattype, quick_molspec%chg)
+#if defined CUDA || defined CUDA_MPIV
+!   call gpu_setup(natom,nbasis, quick_molspec%nElec, quick_molspec%imult, &
+!        quick_molspec%molchg, quick_molspec%iAtomType)
+!   call gpu_upload_xyz(xyz)
+!   call gpu_upload_atom_and_chg(quick_molspec%iattype, quick_molspec%chg)
 #endif
 
 !  calculate energy first
-   call g2eshell
-   call schwarzoff
+!   call g2eshell
+!   call schwarzoff
 
-#ifdef CUDA
-   call gpu_upload_basis(nshell, nprim, jshell, jbasis, maxcontract, &
-        ncontract, itype, aexp, dcoeff, &
-        quick_basis%first_basis_function, quick_basis%last_basis_function, &
-        quick_basis%first_shell_basis_function,quick_basis%last_shell_basis_function, &
-        quick_basis%ncenter, quick_basis%kstart, quick_basis%katom, &
-        quick_basis%ktype, quick_basis%kprim, quick_basis%kshell,quick_basis%Ksumtype, &
-        quick_basis%Qnumber, quick_basis%Qstart, quick_basis%Qfinal,quick_basis%Qsbasis, quick_basis%Qfbasis, &
-        quick_basis%gccoeff, quick_basis%cons, quick_basis%gcexpo, quick_basis%KLMN)
+#if defined CUDA || defined CUDA_MPIV
+!   call gpu_upload_basis(nshell, nprim, jshell, jbasis, maxcontract, &
+!        ncontract, itype, aexp, dcoeff, &
+!        quick_basis%first_basis_function, quick_basis%last_basis_function, &
+!        quick_basis%first_shell_basis_function,quick_basis%last_shell_basis_function, &
+!        quick_basis%ncenter, quick_basis%kstart, quick_basis%katom, &
+!        quick_basis%ktype, quick_basis%kprim, quick_basis%kshell,quick_basis%Ksumtype, &
+!        quick_basis%Qnumber, quick_basis%Qstart, quick_basis%Qfinal,quick_basis%Qsbasis, quick_basis%Qfbasis, &
+!        quick_basis%gccoeff, quick_basis%cons, quick_basis%gcexpo, quick_basis%KLMN)
 
-   call gpu_upload_cutoff_matrix(Ycutoff, cutPrim)
+!   call gpu_upload_cutoff_matrix(Ycutoff, cutPrim)
    call gpu_upload_grad(quick_qm_struct%gradient, quick_method%gradCutoff)
 
 #endif
 
    call getEnergy(failed)
 
+   do Ibas=1,nbasis
+      do Jbas=1,nbasis
+!          write(*,*) "Density
+!          matrix:",Ibas,Jbas,quick_qm_struct%dense(Jbas,Ibas)
+!           write(*,*) "Coefficient matrix:",Ibas,Jbas,quick_qm_struct%co(Jbas,Ibas)
+      enddo
+   enddo
+
+         do K=1,quick_molspec%nelec/2
+           write(*,*) "Orbital energy: ",quick_qm_struct%E(K)
+         enddo
+
    if (quick_method%analgrad) then
       call scf_gradient
    endif
 
-#ifdef CUDA
+#if defined CUDA || defined CUDA_MPIV
    if (quick_method%bCUDA) then
       call gpu_cleanup()
    endif
@@ -577,7 +589,7 @@ subroutine get_electron_replusion_grad
       enddo
    enddo
 
-#ifdef CUDA
+#if defined CUDA || defined CUDA_MPIV
    if (quick_method%bCUDA) then
 
       if(quick_method%HF)then
@@ -598,7 +610,10 @@ subroutine get_electron_replusion_grad
    else
 #endif
 
-#ifdef MPIV
+#if defined MPIV && !defined CUDA_MPIV 
+
+write(*,*) "mpiv get2e gradient block"
+
    if (bMPI) then
       nshell_mpi = mpi_jshelln(mpirank)
    else
@@ -636,7 +651,7 @@ subroutine get_electron_replusion_grad
             enddo
          enddo
       enddo
-#ifdef CUDA
+#if defined CUDA || defined CUDA_MPIV
    endif
 #endif
 

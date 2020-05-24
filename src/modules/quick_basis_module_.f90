@@ -106,7 +106,12 @@ module quick_basis_module
         double precision, allocatable, dimension(:,:) :: gcexpo
  
         integer, allocatable, dimension(:,:) :: KLMN  
-        
+
+#ifdef CUDA_MPIV
+        integer :: mpi_qshell                   ! Total number or sorted shells 
+
+        integer,allocatable :: mpi_qshelln(:)   ! qshell ranges calculated by each gpu
+#endif         
         
    end type quick_basis_type
     
@@ -210,6 +215,7 @@ contains
    subroutine allocate_quick_basis(self,natom_arg,nshell_arg,nbasis_arg)
         use quick_gaussian_class_module
         use quick_size_module
+        use quick_mpi_module
         implicit none
         integer natom_arg,nshell_arg,nbasis_arg,i,j
         type(quick_basis_type) self
@@ -257,6 +263,9 @@ contains
         enddo
         
         allocate(self%KLMN(3,nbasis_arg))
+#ifdef CUDA_MPIV
+        allocate(self%mpi_qshelln(mpisize+1))
+#endif
    end subroutine allocate_quick_basis
    
    
@@ -291,6 +300,10 @@ contains
         if (allocated(self%gccoeff)) deallocate(self%gccoeff)
         if (allocated(self%KLMN)) deallocate(self%KLMN)
 
+#ifdef CUDA_MPIV
+        if (allocated(self%mpi_qshelln)) deallocate(self%mpi_qshelln)
+#endif
+
    end subroutine deallocate_quick_basis
    
    
@@ -310,7 +323,6 @@ contains
          allocate(dPhidYXiao(nbasis))
          allocate(dPhidZXiao(nbasis))
       end if
-
    end subroutine
    
    subroutine print_quick_basis(self,ioutfile)
