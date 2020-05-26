@@ -32,11 +32,6 @@ SUBROUTINE DIAG(NDIM,A,EVAL1,EVEC1,IERROR)
   ! Solve eigenproblem
   call dsyevd('Vectors', 'Upper', NDIM, EVEC1, LDA, EVAL1, WORK, LWORK, IWORK, LIWORK, IERROR)
 
-  if (INFO.gt.0) then
-        write(*,*) "The algorithm failed to compute eigenvalues."
-        stop
-    end if
-
   deallocate(IWORK)
   deallocate(WORK)
   
