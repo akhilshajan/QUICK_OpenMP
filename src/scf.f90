@@ -86,6 +86,9 @@ subroutine electdiis(jscf)
    double precision :: allerror(quick_method%maxdiisscf,nbasis,nbasis)
    double precision :: alloperator(quick_method%maxdiisscf,nbasis,nbasis)
 
+   type (quick_qm_struct_type) :: old_quick_qm_struct
+   old_quick_qm_struct = quick_qm_struct
+
    !---------------------------------------------------------------------------
    ! The purpose of this subroutine is to utilize Pulay's accelerated
    ! scf convergence as detailed in J. Comp. Chem, Vol 3, #4, pg 566-60, 1982.
@@ -576,6 +579,9 @@ subroutine electdiis(jscf)
          call dat(quick_qm_struct, iDataFile)
          close(iDataFile)
 
+         ! save density matrix to a binary checkpoint file and test reading and  writing
+         call savedensecheckpoint(old_quick_qm_struct,jscf)
+        
          current_diis=mod(idiis-1,quick_method%maxdiisscf)
          current_diis=current_diis+1
 
@@ -1304,3 +1310,41 @@ subroutine fermiSCF(efermi,jscf)
    call flush(ioutfile)
 
 end subroutine fermiSCF
+
+subroutine savedensecheckpoint(old_quick_qm_struct,jscf)
+    use allmod
+    implicit none
+    integer :: i,j,jscf
+    type (quick_qm_struct_type) :: old_quick_qm_struct
+    
+    print *, "before updating, old_quick_qm_struct%dense is"
+    call printmatrix(old_quick_qm_struct%dense, nbasis)
+
+    print *, "while the latest quick_qm_struct%dense is"
+    call printmatrix(quick_qm_struct%dense, nbasis)
+
+    open(unit=100,file="dense_checkpoint.bin",form="unformatted",status="unknown",access="direct",recl=nbasis*nbasis*8)
+    write(100,rec=jscf), quick_qm_struct%dense
+    close(100)
+    print *, "test reading from dense.bin:"
+    open(unit=200,file="dense_checkpoint.bin",form='unformatted',access="direct",recl=nbasis*nbasis*8)
+    read(200, rec=jscf), old_quick_qm_struct%dense
+    close(200)
+
+    print *, "after reading from dense.bin, old_quick_qm_struct%dense should be updated as"
+    call printmatrix(old_quick_qm_struct%dense, nbasis)
+
+end subroutine savedensecheckpoint
+
+subroutine printmatrix(matrix,n)
+    integer n, i, j
+    double precision, dimension(n,n),intent(in) :: matrix
+
+    do i=1, n
+        do j=1, n
+            write(*, '(f10.6)', advance='no'), matrix(i,j)
+        end do
+        write(*,'(" ")')
+    end do
+
+end subroutine printmatrix
