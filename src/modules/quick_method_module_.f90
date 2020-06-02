@@ -34,6 +34,14 @@ module quick_method_module
         logical :: debug =  .false.    ! debug mode
         logical :: nodirect = .false.  ! conventional scf
         logical :: readDMX =  .false.  ! flag to read density matrix
+
+        !added new attributes here but it causes errors: 
+        !At line 45 of file readPDB.f90 (unit = 23, file = 'water.pdb')
+        !Fortran runtime error: End of file
+
+        !logical :: readSelDMX = .false.! flag to read selected density matrix
+        !integer :: readSelDMXInd = 0   ! The index of the selected densitymatrix to read in the checkpoint file
+
         logical :: writePMat = .false. ! flag to write density matrix
         logical :: diisSCF =  .false.  ! DIIS SCF
         logical :: prtGap =  .false.   ! flag to print HOMO-LUMO gap
