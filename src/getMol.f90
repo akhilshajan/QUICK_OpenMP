@@ -238,21 +238,22 @@ subroutine initialGuess
 
    present = .false.
 
+    if (quick_method%readSelDMX) inquire (file="dense_checkpoint.bin",exist=present)
+    if (present) then
+        open(unit=200,file="dense_checkpoint.bin",form='unformatted',access="direct",recl=nbasis*nbasis*8)
+        read(200, rec=quick_method%readSelDMXInd), quick_qm_struct%dense
+        close(200)
+    
+
+!   present = .false.
+
    ! if read matrix is requested, begin to read dmx file
-   !if (quick_method%readdmx) inquire (file=dataFileName,exist=present)
-   !if (present) then
-   !   call quick_open(iDataFile, dataFileName, 'O', 'U', 'W',.true.)
+!   if (quick_method%readdmx) inquire (file=dataFileName,exist=present)
+!   if (present) then
+!      call quick_open(iDataFile, dataFileName, 'O', 'U', 'W',.true.)
 
       ! read first part, which is restricted or alpha density matrix
-   !   call rchk_darray(iDataFile, "dense", nbasis, nbasis, 1, quick_qm_struct%dense, failed)
-   
-   if (quick_method%readdmx) inquire (file="dense_checkpoint.bin",exist=present)
-    if (present) then
-        print *, "At what iteration do you want to restart?"
-        read(*,*), restartind
-        open(unit=200,file="dense_checkpoint.bin",form='unformatted',access="direct",recl=nbasis*nbasis*8)
-        read(200, rec=restartind), quick_qm_struct%dense
-        close(200)
+!      call rchk_darray(iDataFile, "dense", nbasis, nbasis, 1, quick_qm_struct%dense, failed)
 
       if(quick_method%unrst) then
          failed = 0

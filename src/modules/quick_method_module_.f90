@@ -35,12 +35,9 @@ module quick_method_module
         logical :: nodirect = .false.  ! conventional scf
         logical :: readDMX =  .false.  ! flag to read density matrix
 
-        !added new attributes here but it causes errors: 
-        !At line 45 of file readPDB.f90 (unit = 23, file = 'water.pdb')
-        !Fortran runtime error: End of file
-
-        !logical :: readSelDMX = .false.! flag to read selected density matrix
-        !integer :: readSelDMXInd = 0   ! The index of the selected densitymatrix to read in the checkpoint file
+        ! added attributes from reading DMX from a provided checkpoints
+        logical :: readSelDMX = .false.! flag to read selected density matrix
+        integer :: readSelDMXInd = 0   ! The index of the selected density matrix to read in the checkpoint file
 
         logical :: writePMat = .false. ! flag to write density matrix
         logical :: diisSCF =  .false.  ! DIIS SCF
@@ -133,7 +130,7 @@ module quick_method_module
     end type quick_method_type
     
     type (quick_method_type),save :: quick_method
-    
+
     interface print
         module procedure print_quick_method
     end interface print
@@ -260,7 +257,6 @@ module quick_method_module
             character(len=120) :: f_name, f_kind, f_family
             integer :: vmajor, vminor, vmicro, f_id
 !#endif
-                
             if (io.ne.0) then   
             write(io,'(" ============== JOB CARD =============")')
             if (self%HF) then
@@ -360,6 +356,8 @@ endif
             if (self%readDMX)   write(io,'("| READ DENSITY MATRIX FROM FILE")')
             if (self%writePMat) write(io,'("| WRITE DENSITY MATRIX TO FILE")')
             
+            if (self%readSelDMX) write(io,'("| READ SELECTED DENSITY MATRIX FROM FILE")')
+
             if (self%zmat)      write(io,'("| Z-MATRIX CONSTRUCTION")')
             if (self%dipole)    write(io,'("| DIPOLE")')
             if (self%ecp)       write(io,'("| ECP BASIS SET")')
@@ -452,6 +450,13 @@ endif
             type (quick_method_type) self
         
             call upcase(keyWD,200)
+            !print *, "keyword is"
+            !print *, keyWD
+
+            !if (index(keyWD,'PDB').ne. 0) then       
+            !    print *, "turn on PDB"
+            !    self%PDB=.true.
+            !endif
             if (index(keyWD,'PDB').ne. 0)       self%PDB=.true.
             if (index(keyWD,'MFCC').ne.0)       self%MFCC=.true.
             if (index(keyWD,'FMM').ne.0)        self%FMM=.true.
@@ -494,6 +499,12 @@ endif
             if (index(keyWD,'FREQ').ne.0)       self%freq=.true.
             if (index(keywd,'DEBUG').ne.0)      self%debug=.true.
             if (index(keyWD,'READ').ne.0)       self%readDMX=.true.
+
+            if (index(keyWD,'RSELDMX=')/=0) then
+               self%readSelDMX=.true.
+               self%readSelDMXInd=rdnml(keywd,'RSELDMX')
+            endif
+        
             if (index(keyWD,'ZMAKE').ne.0)      self%zmat=.true.
             if (index(keyWD,'DIPOLE').ne.0)      self%dipole=.true.
             if (index(keyWD,'WRITE').ne.0)      self%writePMat=.true.
@@ -619,6 +630,10 @@ endif
             self%debug =  .false.    ! debug mode
             self%nodirect = .false.  ! conventional SCF
             self%readDMX =  .false.  ! flag to read density matrix
+            
+            self%readSelDMX = .false.! flag to read selected density matrix
+            self%readSelDMXInd = 0   ! The index of the selected density matrix to read in the checkpoint file
+
             self%diisSCF =  .false.  ! DIIS SCF
             self%prtGap =  .false.   ! flag to print HOMO-LUMO gap
             self%opt =  .false.      ! optimization

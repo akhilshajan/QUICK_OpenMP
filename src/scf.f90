@@ -1317,22 +1317,9 @@ subroutine savedensecheckpoint(old_quick_qm_struct,jscf)
     integer :: i,j,jscf
     type (quick_qm_struct_type) :: old_quick_qm_struct
     
-!    print *, "before updating, old_quick_qm_struct%dense is"
-!    call printmatrix(old_quick_qm_struct%dense, nbasis)
-
-!    print *, "while the latest quick_qm_struct%dense is"
-!    call printmatrix(quick_qm_struct%dense, nbasis)
-
     open(unit=100,file="dense_checkpoint.bin",form="unformatted",status="unknown",access="direct",recl=nbasis*nbasis*8)
     write(100,rec=jscf), quick_qm_struct%dense
     close(100)
-!    print *, "test reading from dense.bin:"
-!    open(unit=200,file="dense_checkpoint.bin",form='unformatted',access="direct",recl=nbasis*nbasis*8)
-!    read(200, rec=jscf), old_quick_qm_struct%dense
-!    close(200)
-
-!    print *, "after reading from dense.bin, old_quick_qm_struct%dense should be updated as"
-!    call printmatrix(old_quick_qm_struct%dense, nbasis)
 
 end subroutine savedensecheckpoint
 
