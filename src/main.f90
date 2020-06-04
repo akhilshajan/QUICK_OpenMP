@@ -45,6 +45,7 @@
     integer :: i,j,k
     double precision t1_t, t2_t
     common /timer/ t1_t, t2_t
+    logical :: present
     !------------------------------------------------------------------
     ! 1. The first thing that must be done is to initialize and prepare files
     !------------------------------------------------------------------
@@ -120,7 +121,16 @@
     call cpu_time(timer_begin%TIniGuess)
     
     ! a. SAD intial guess
-    if (quick_method%SAD) call getMolSad()
+    !if (quick_method%SAD) call getMolSad()
+    present = .false.
+    if (quick_method%SAD) then
+        if (quick_method%readSelDMX) inquire (file="dense_checkpoint.bin",exist=present)
+        if (.not. present) then
+            ! print *, "IN MAIN, call getMolSad()"
+            call getMolSad()
+        end if
+    end if
+
 
     ! b. MFCC initial guess
     if (quick_method%MFCC) then
