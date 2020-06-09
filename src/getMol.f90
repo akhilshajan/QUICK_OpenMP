@@ -248,7 +248,7 @@ subroutine initialGuess
       if(quick_method%unrst) then
          failed = 0
          ! read second part, which is beta density matrix
-         call rchk_darray(iDataFile, "denseb", nbasis, nbasis, 1, quick_qm_struct%dense, failed)
+         call rchk_darray(iDataFile, "denseb", nbasis, nbasis, 1, quick_qm_struct%denseb, failed)
          if (failed .eq. 0) then
             call PrtWrn(iOutFile,"CONVERTING RESTRICTED DENSITY TO UNRESTRICTED")
             do I=1,nbasis

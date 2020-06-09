@@ -97,6 +97,8 @@ subroutine uelectdiis_new_imp2(jscf)
    double precision :: TEne_begin,TEne_end, step_TDiag ! Operator and diagonalization times for a single step
    double precision :: oldEnergy            ! To keep track of step energy change
 
+   logical :: present = .false. ! do we have a checkpoint file to start with?
+
    ! The purpose of this subroutine is to utilize Pulay's accelerated
    ! scf convergence as detailed in J. Comp. Chem, Vol 3, #4, pg 566-60, 1982.
    ! At the beginning of this process, their is an approximate density
@@ -171,13 +173,16 @@ subroutine uelectdiis_new_imp2(jscf)
    endif
 #endif
 
-   do i=1,nbasis
-       do j=1,nbasis
-           temp=quick_qm_struct%dense(j,i)/2.0d0
-           quick_qm_struct%dense(j,i)=temp
-           quick_qm_struct%denseb(j,i)=temp
+   if (quick_method%readdmx) inquire (file=dataFileName,exist=present)
+   if (.not. present) then
+    do i=1,nbasis
+        do j=1,nbasis
+            temp=quick_qm_struct%dense(j,i)/2.0d0
+            quick_qm_struct%dense(j,i)=temp
+            quick_qm_struct%denseb(j,i)=temp
        enddo
-   enddo
+    enddo
+   end if
 
    do while (.not.diisdone)
 
@@ -698,6 +703,12 @@ subroutine uelectdiis_new_imp2(jscf)
       timer_cumer%TDII=timer_cumer%TDII+timer_end%TDII-timer_begin%TDII
       timer_cumer%TDiag=step_TDiag+timer_cumer%TDiag
 
+      ! write checkpoint file
+      call quick_open(iDataFile, dataFileName, 'R', 'U', 'R',.true.)
+      rewind(iDataFile)
+      call dat(quick_qm_struct, iDataFile)
+      close(iDataFile)
+    
       current_diis=mod(idiis-1,quick_method%maxdiisscf)
       current_diis=current_diis+1
 
